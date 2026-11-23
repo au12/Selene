@@ -308,8 +308,10 @@
       lcd0: '#cfd4c3', lcd1: '#c1c6b4',
     };
     // moon panel: as wide as the time display below it, with a low arched top
-    const W = { cx: 500, cy: 474, R: 350, top: 232, sh: 326 };
-    const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return W.top + (W.sh - W.top) * u * u * u * u; };
+    const W = { cx: 500, cy: 474, R: 350, top: 226 };
+    // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
+    const SE = 2.7, BR = 30, baseY = W.cy + 34;
+    const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return W.cy - (W.cy - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
     const T = { rx: 208, ry: 118, cy: W.cy - 8 }; // hour-angle track
     const G = { cx: 500, cy: W.cy, rx: 286, ry: 198, mr: 29, a0: 162, astep: 18,
       hr0: 1, hr1: 1, hw: 0, hdot: 6.2, hrx: () => T.rx, hry: () => T.ry, hcy: T.cy,
@@ -347,11 +349,13 @@
     // hour-angle printed track: a pip under each marker position
     let haScale = '';
     for (let k = 0; k < 13; k++) { const a = (180 - k * 15) * RAD; haScale += circleD(W.cx + T.rx * Math.cos(a), T.cy - T.ry * Math.sin(a), 1.7); }
-    const base = `V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z`;
-    const domeD = `M${W.cx - W.R} ${W.cy}V${W.sh + 14}C${W.cx - W.R} ${W.top + 26} ${W.cx - 250} ${W.top} ${W.cx} ${W.top}C${W.cx + 250} ${W.top} ${W.cx + W.R} ${W.top + 26} ${W.cx + W.R} ${W.sh + 14}V${W.cy}${base}`;
+    const base = `V${baseY - BR}C${W.cx + W.R} ${baseY - BR * 0.42} ${W.cx + W.R - BR * 0.42} ${baseY} ${W.cx + W.R - BR} ${baseY}H${W.cx - W.R + BR}C${W.cx - W.R + BR * 0.42} ${baseY} ${W.cx - W.R} ${baseY - BR * 0.42} ${W.cx - W.R} ${baseY - BR}Z`;
+    let topD = '';
+    for (let i = 1; i <= 120; i++) { const x = W.cx - W.R + (2 * W.R) * (0.5 - 0.5 * Math.cos(Math.PI * i / 120)); topD += `L${f1(x)} ${(i === 120 ? W.cy : topY(x)).toFixed(2)}`; }
+    const domeD = `M${W.cx - W.R} ${W.cy}${topD}${base}`;
     const waves = [0, 1].map((j) => {
-      let d = `M${W.cx - W.R + 6} ${W.cy + 12 + j * 10}`;
-      for (let x = W.cx - W.R + 6; x < W.cx + W.R - 6; x += 24) d += `q6 -2.2 12 0t12 0`;
+      let d = `M${W.cx - W.R + 30} ${W.cy + 12 + j * 10}`;
+      for (let x = W.cx - W.R + 30; x < W.cx + W.R - 40; x += 24) d += `q6 -2.2 12 0t12 0`;
       return d;
     }).join('');
     const lcdBox = { x: 150, y: 522, w: 700, h: 254, r: 34 };
@@ -374,11 +378,11 @@ ${text('label', 'LUNAR ARC', 500, 160, 11.5, { align: 'middle', track: 0.42, att
 <path d="${domeD}" fill="url(#arcSky)"/>
 <g fill="#c7d3e3">${starSvg}</g>
 <path d="${haScale}" fill="${C.silver}" opacity=".55"/>
-<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z" fill="#05080d" opacity=".92"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}${base}" fill="#05080d" opacity=".92"/>
 <path d="${waves}" fill="none" stroke="#9fb3cf" stroke-opacity=".22" stroke-width="1.4"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/>
-${text('label', 'E', W.cx - W.R + 12, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
-${text('label', 'W', W.cx + W.R - 12, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
+${text('label', 'E', W.cx - W.R + 34, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
+${text('label', 'W', W.cx + W.R - 34, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
 <path d="${domeD}" fill="none" stroke="#b9c6d8" stroke-width="3.2"/>
 <path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2" transform="translate(0 1.5)"/>
 <g class="mgl">${segPaths(mg)}</g>
