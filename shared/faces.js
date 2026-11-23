@@ -332,11 +332,18 @@
       const x = mg[k].cx;
       mg.push({ id: 'r' + k, cls: 'mg', d: rrect(x - 13, W.cy + 6, 26, 3, 1.5) + rrect(x - 8.5, W.cy + 11.6, 17, 2.8, 1.4) + rrect(x - 4.5, W.cy + 17, 9, 2.4, 1.2) });
     }
+    // LCD content, drawn at 90 % about the display's centre line so it clears the rounded lower outline
     const L = { mx: 186, my: 548, mp: 9.6, md: 8.2, mg: 12,
       sx: 566, sy: 548, sw: 42, sh: 66, st: 8.6, sgap: 11, sdz: 26, g: 1.6, slant: 4,
       ly: 640, lcap: 10.5, ix: 734, isz: 19,
       bx: 262, by: 656, bw: 70, bh: 102, bt: 13.5, bgap: 15, bcz: 26, bsgap: 20, ssw: 48, ssh: 72, sst: 10,
-      ix0: 180, icap: 12.5, lblUp: 14 };
+      ix0: 180, icap: 12.5 };
+    for (const key of Object.keys(L)) {
+      if (['mx', 'sx', 'ix', 'bx', 'ix0'].includes(key)) L[key] = 500 + (L[key] - 500) * 0.9;
+      else if (['my', 'sy', 'ly', 'by'].includes(key)) L[key] = 549 + (L[key] - 548) * 0.9;
+      else L[key] *= 0.9;
+    }
+    L.lblUp = 12; // MOON / SUNSET indicators sit a little higher, clear of the curve
     const lcd = lcdBlock(L);
     const inDome = (x, y) => Math.abs(x - W.cx) < W.R - 12 && y < W.cy - 12 && y > topY(x) + 10;
     const avoid = (x, y) => G.starAvoid(x, y) || mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 42 ** 2);
@@ -366,8 +373,18 @@
       return d;
     }).join('');
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
-    const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
-    const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
+    // the moon panel's outline, mirrored: tight top corners, then the same half-superellipse turned downward
+    const gap = 14, lcdBox = { x: W.cx - W.R, y: baseY + gap, w: 2 * W.R, h: baseY - W.top, r: BR };
+    const lcdD = (g) => {
+      const x0 = lcdBox.x - g, x1 = lcdBox.x + lcdBox.w + g, y0 = lcdBox.y - g, r = BR + g * 0.9, k = 0.42;
+      const ys = lcdBox.y + BR, a = W.R + g, b = lcdBox.h - BR + g; // sides end at ys; the curve runs from there to the bottom
+      let d = `M${f1(x0 + r)} ${f1(y0)}H${f1(x1 - r)}C${f1(x1 - r * k)} ${f1(y0)} ${f1(x1)} ${f1(y0 + r * k)} ${f1(x1)} ${f1(ys)}`;
+      for (let i = 1; i <= 120; i++) {
+        const u = Math.cos(Math.PI * i / 120); // 1 → -1 : right side to left side
+        d += `L${f1(W.cx + a * u)} ${(ys + b * Math.pow(1 - Math.pow(Math.abs(u), SE), 1 / SE)).toFixed(2)}`;
+      }
+      return d + `C${f1(x0)} ${f1(y0 + r * k)} ${f1(x0 + r * k)} ${f1(y0)} ${f1(x0 + r)} ${f1(y0)}Z`;
+    };
     const btn = (label, ang, upper) => arcText('label', label, 500, 500, 436, ang, 14, upper, { track: 0.16, attrs: `fill="${C.silver}"` }) +
       `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${C.gold}"/>`;
     const svg = `
