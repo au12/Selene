@@ -127,7 +127,7 @@ Full bill of materials, wiring and assembly: **[docs/BUILD.md](docs/BUILD.md)**.
 
 <p align="center"><img src="assets/face-arc.png" width="270" alt="Arc"> <img src="assets/face-desk.png" width="270" alt="Desk"> <img src="assets/face-noir.png" width="270" alt="Noir"></p>
 
-**Arc** — black watch dial, dome sky over the sea with moon reflections.
+**Arc** — black watch dial, a wide night-sky panel over the sea, as wide as the time display, with moon reflections.
 **Desk** — ivory clock dial with an LCD seconds ring, night sky over hills and an observatory.
 **Noir** — black night face with an amber negative LCD.
 
