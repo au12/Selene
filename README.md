@@ -81,13 +81,30 @@ bezel. The dome also stretches the print near the rim. *Settings → Domed cryst
   | Moon hour-angle times | 3.4 min | 6.1 min |
   | Moon age | 0.8 day | 0.9 day |
 
-<p align="center"><img src="assets/screenshots/gmw15-compare.png" width="343" alt="GMW-15 logic vs modern for the date on the watch"></p>
+<p align="center"><img src="assets/screenshots/gmw15-compare.png" width="343" alt="GMW-15 logic vs modern for the date on the watch, with the stand-in date for the real watch"></p>
 
 The **GMW-15 vs modern** card shows both engines side by side for the date on the watch (today, or the date dialled in
 moon time / sunrise-sunset mode), to the minute. The **Watch log** card is for checking the method against a real
 GMW-15: set the watch and Selene to the same GMT offset and whole-degree location, dial a date on the watch and type
 what it shows. Each reading is matched against what GMW-15 logic would put on the LCD (5-minute times, 0.1-day age);
 *Export CSV* writes every reading with the GMW-15 display value and the exact GMW-15 and modern values.
+
+**Past 2029 on the real watch.** The GMW-15's calendar ends in 2029, so the card also shows the stand-in date to set
+and the weekday to go with it. The watch then runs a fixed number of days behind the real date, chosen to line the
+moon's phase and the season back up: **6,940 days** (19 years, the Metonic cycle) through 2048, then 9,863 days (27 years
+and a day or two) through 2056, 16,803 days (46 years and 2 days) until the end of 2071, and 31,775 days (87 years) after
+that. The card works this out for whatever date the watch shows, so the same line also tells you which date to dial on
+the real watch to look up a day after 2029.
+The exact day count matters: one day either way roughly doubles the moon-time error.
+
+- **Weekday:** the GMW-15 sets its weekday independently of the date (Selene's set mode has the same step), so set the
+  real weekday after the stand-in date.
+- **Leave the date running:** keep the real time and don't correct the date afterwards. Around leap years it reads a
+  day off from the real date, which keeps the day count exact.
+- **What to expect** (Greenville, real dates 2030–2048, 6,940 days behind): sunrise/sunset shown right on 83 % of days
+  (85 % in the watch's own years), phase icon wrong on 13 % (10 %), moon times off about 16 minutes typically and
+  38 minutes on the worst 5 % of days (1 and 3 minutes in its own years). The moon's phase and season line up again,
+  but its place on its elliptical orbit doesn't, so the moon times can't get closer than that.
 
 ### Run it
 

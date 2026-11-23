@@ -108,6 +108,12 @@ input[type=range]{accent-color:var(--gold);width:110px}
 .cmp .h.v.on{color:var(--accent);font-weight:600}
 .cmp .d{text-align:right;color:#5f6c80;min-width:48px}
 .cmp .d.big{color:var(--warn)}
+/* stand-in date for the real watch */
+.standin{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
+.standin .si{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.standin .si span{color:var(--mute)}
+.standin .si b{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.standin .si b.wd{color:var(--gold);letter-spacing:.08em}
 /* watch log */
 details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
 .logform{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
