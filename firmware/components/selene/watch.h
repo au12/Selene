@@ -22,6 +22,8 @@ struct SegSet {
 };
 
 enum Btn : uint8_t { BTN_A = 0, BTN_B, BTN_C, BTN_D, BTN_L, BTN_COUNT };
+// Astronomy engine: modern (astro.cpp) or Casio's own GMW-15-era method (gmw15.cpp)
+enum Engine : uint8_t { ENGINE_MODERN = 0, ENGINE_GMW15 = 1 };
 enum Mode : uint8_t { M_TIME = 0, M_MOON, M_SUN, M_ALM, M_ST };
 enum SetKind : uint8_t { SET_NONE = 0, SET_TIME, SET_LOC, SET_ALM };
 enum WatchEvent : uint8_t {
@@ -49,6 +51,7 @@ struct WatchSettings {
   bool authentic{false};
   uint8_t snooze_min{5};
   int64_t user_offset{0};
+  uint8_t engine{ENGINE_MODERN};
 };
 
 struct LocalTime {
@@ -91,6 +94,7 @@ class Watch {
     int64_t day{INT64_MIN};
     float lat{0}, lon{0};
     int32_t tz{0};
+    uint8_t engine{0};
     double age{0};
     int phase{0};
     int64_t rise{0}, set{0};
@@ -141,9 +145,11 @@ class Watch {
   uint32_t last_use_{0};
   bool after_op_{false};
   int64_t last_sec_{INT64_MIN};
-  // current astro (per second)
+  // current astro (per second; per hour with GMW-15 logic)
   int64_t cur_key_{INT64_MIN};
   float cur_lat_{0}, cur_lon_{0};
+  int32_t cur_tz_{0};
+  uint8_t cur_engine_{0xFF};
   int cur_phase_{0}, cur_hai_{-1};
   DayData cache_[2];
   int cache_next_{0};

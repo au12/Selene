@@ -1,13 +1,17 @@
 // Host test: replays a scripted button sequence and prints lit segment indices per step.
+// Usage: watch_host [modern|gmw15] [tz_min lat lon]
 // Input lines: "<op> <arg> <now_ms> <rt_ms>" where op in P(press) R(release) T(tick) S(segments)
 #include "../components/selene/watch.h"
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 using namespace esphome::selene;
 int main(int argc, char **argv) {
   Watch w;
   w.synced_time = false;
   w.s.tz_min = -300; w.s.lat = 40.7f; w.s.lon = -74.0f;
+  if (argc > 1) w.s.engine = strcmp(argv[1], "gmw15") == 0 ? ENGINE_GMW15 : ENGINE_MODERN;
+  if (argc > 4) { w.s.tz_min = atoi(argv[2]); w.s.lat = (float) atof(argv[3]); w.s.lon = (float) atof(argv[4]); }
   char op[4]; long long now; unsigned rt; char arg[4];
   while (scanf("%3s %3s %lld %u", op, arg, &now, &rt) == 4) {
     Btn b = BTN_A;

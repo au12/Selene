@@ -9,12 +9,16 @@
  * Time model: the module is given `now` (UTC ms, possibly simulated). Watch UTC = now + userOffset.
  * Local watch time = watch UTC + tzMin. Location = lat/lon (degrees, east positive).
  *
- * Ported 1:1 to C++ in firmware/components/selene/watch_logic.cpp — keep in sync.
+ * Astronomy engine (settings.engine): 'modern' = astro.js (arc-minute positions, root-found event times);
+ * 'gmw15' = gmw15.js, Casio's own low-precision method from its 1989 patent: location in whole degrees,
+ * moon age once a day (local noon), hour angle recalculated at the top of each hour, interpolated moon times.
+ *
+ * Ported 1:1 to C++ in firmware/components/selene/watch.cpp — keep in sync.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./astro.js'));
-  else root.SeleneModule = factory(root.SeleneAstro);
-})(typeof self !== 'undefined' ? self : this, function (A) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./astro.js'), require('./gmw15.js'));
+  else root.SeleneModule = factory(root.SeleneAstro, root.SeleneGMW15);
+})(typeof self !== 'undefined' ? self : this, function (A, G) {
   'use strict';
   const DAY = 86400000, HOUR = 3600000, MIN = 60000;
 
@@ -79,8 +83,10 @@
     let tz = 0;
     try { tz = -new Date().getTimezoneOffset(); } catch (e) { /* ignore */ }
     return { tzMin: tz, lat: 40.7, lon: -74.0, h24: false, alarmH: 7, alarmM: 0, alarmOn: false, chimeOn: false,
-      userOffset: 0, dowOffset: 0, authentic: false, snoozeMin: 5 };
+      userOffset: 0, dowOffset: 0, authentic: false, snoozeMin: 5, engine: 'modern' };
   }
+  /** Astronomy engines: [id, label]. */
+  const ENGINES = [['gmw15', 'GMW-15 logic'], ['modern', 'Modern']];
 
   class Module {
     constructor(settings, hooks) {
@@ -117,24 +123,47 @@
 
     // ------------------------------------------------------------ astronomy (cached)
     current(now) {
-      const t = this.utc(now), key = Math.floor(t / 1000) + '|' + this.s.lat + '|' + this.s.lon;
+      const S = this.s;
+      if (S.engine === 'gmw15') {
+        // GMW-15 logic: the hour angle is recalculated at the top of each hour, the moon age once a day
+        const loc = this.local(now), hourLocal = Math.floor(loc / HOUR) * HOUR, dayLocal = Math.floor(loc / DAY) * DAY;
+        const lon = G.wholeDeg(S.lon), key = 'g|' + hourLocal + '|' + lon + '|' + S.tzMin;
+        if (this._cur.key !== key) {
+          const age = G.moonAge(dayLocal, S.tzMin);
+          this._cur = { key, age, phase: A.phaseIndex(age), ha: G.hourAngle(hourLocal - S.tzMin * MIN, lon) };
+          this._cur.haIdx = A.hourAngleIndex(this._cur.ha);
+        }
+        return this._cur;
+      }
+      const t = this.utc(now), key = Math.floor(t / 1000) + '|' + S.lat + '|' + S.lon;
       if (this._cur.key !== key) {
         const age = A.moonAge(t);
-        this._cur = { key, age, phase: A.phaseIndex(age), ha: A.moonHourAngle(t, this.s.lon) };
+        this._cur = { key, age, phase: A.phaseIndex(age), ha: A.moonHourAngle(t, S.lon) };
         this._cur.haIdx = A.hourAngleIndex(this._cur.ha);
       }
       return this._cur;
     }
-    dayData(dayLocal) {
-      const key = dayLocal + '|' + this.s.lat + '|' + this.s.lon + '|' + this.s.tzMin;
+    /**
+     * What the watch shows for the local date `dayLocal` (local ms of midnight): moon age at local noon, phase slot,
+     * sunrise/sunset and the moon's 18h/0h/6h/12h hour-angle times (UTC ms or null).
+     * `engine` defaults to the current setting, `loc` ({lat, lon, tzMin}) to the watch's location.
+     */
+    dayData(dayLocal, engine, loc) {
+      const S = loc || this.s, eng = engine || this.s.engine;
+      const key = eng + '|' + dayLocal + '|' + S.lat + '|' + S.lon + '|' + S.tzMin;
       let v = this._dayCache.get(key);
       if (!v) {
-        const start = dayLocal - this.s.tzMin * MIN; // UTC ms of local midnight
-        const noon = start + 12 * HOUR;
-        const age = A.moonAge(noon);
-        const sun = A.sunRiseSet(start, this.s.lat, this.s.lon);
-        const ev = [18, 0, 6, 12].map((h) => A.moonHourAngleTime(start, this.s.lon, h));
-        v = { age, phase: A.phaseIndex(age), sun, ev };
+        if (eng === 'gmw15') {
+          const lat = G.wholeDeg(S.lat), lon = G.wholeDeg(S.lon);
+          const age = G.moonAge(dayLocal, S.tzMin);
+          v = { age, phase: A.phaseIndex(age), sun: G.sunRiseSet(dayLocal, S.tzMin, lat, lon),
+            ev: [18, 0, 6, 12].map((h) => G.hourAngleTime(dayLocal, S.tzMin, lon, h)) };
+        } else {
+          const start = dayLocal - S.tzMin * MIN; // UTC ms of local midnight
+          const age = A.moonAge(start + 12 * HOUR);
+          v = { age, phase: A.phaseIndex(age), sun: A.sunRiseSet(start, S.lat, S.lon),
+            ev: [18, 0, 6, 12].map((h) => A.moonHourAngleTime(start, S.lon, h)) };
+        }
         if (this._dayCache.size > 64) this._dayCache.clear();
         this._dayCache.set(key, v);
       }
@@ -497,5 +526,5 @@
     status() { return { mode: this.set ? this.set.kind.toUpperCase() + '-SET' : this.mode, demo: !!this.demo, ring: !!this.ring, sw: this.sw.running }; }
   }
 
-  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, STARS, defaults };
+  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, STARS, ENGINES, defaults };
 });

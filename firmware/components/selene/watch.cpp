@@ -1,6 +1,7 @@
 // Selene watch module — C++ port of shared/module.js. See watch.h.
 #include "watch.h"
 #include "astro.h"
+#include "gmw15.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -153,20 +154,34 @@ int64_t Watch::today_local_(int64_t now) const {
 }
 
 // ------------------------------------------------------------------ astronomy caches
+static int64_t floor_div(int64_t a, int64_t b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
+
 void Watch::update_current_(int64_t now) {
-  const int64_t t = utc(now);
-  const int64_t key = t / 1000;
-  if (key == cur_key_ && cur_lat_ == s.lat && cur_lon_ == s.lon)
+  const bool g = s.engine == ENGINE_GMW15;
+  const int64_t loc = local(now);
+  // GMW-15 logic recalculates the hour angle at the top of each hour (and the moon age once a day)
+  const int64_t key = g ? floor_div(loc, HOUR) : utc(now) / 1000;
+  if (key == cur_key_ && cur_lat_ == s.lat && cur_lon_ == s.lon && cur_tz_ == s.tz_min && cur_engine_ == s.engine)
     return;
   cur_key_ = key;
   cur_lat_ = s.lat;
   cur_lon_ = s.lon;
+  cur_tz_ = s.tz_min;
+  cur_engine_ = s.engine;
+  if (g) {
+    const int64_t hour_local = key * HOUR, day_local = floor_div(loc, DAY) * DAY;
+    const double lon = gmw15::whole_deg(s.lon);
+    cur_phase_ = astro::phase_index(gmw15::moon_age(day_local, s.tz_min));
+    cur_hai_ = astro::hour_angle_index(gmw15::hour_angle((double) (hour_local - (int64_t) s.tz_min * MIN), lon));
+    return;
+  }
+  const int64_t t = utc(now);
   cur_phase_ = astro::phase_index(astro::moon_age((double) t));
   cur_hai_ = astro::hour_angle_index(astro::moon_hour_angle((double) t, s.lon));
 }
 const Watch::DayData &Watch::day_data_(int64_t day_local) {
   for (auto &c : cache_)
-    if (c.day == day_local && c.lat == s.lat && c.lon == s.lon && c.tz == s.tz_min)
+    if (c.day == day_local && c.lat == s.lat && c.lon == s.lon && c.tz == s.tz_min && c.engine == s.engine)
       return c;
   DayData &v = cache_[cache_next_];
   cache_next_ ^= 1;
@@ -174,13 +189,22 @@ const Watch::DayData &Watch::day_data_(int64_t day_local) {
   v.lat = s.lat;
   v.lon = s.lon;
   v.tz = s.tz_min;
-  const double start = (double) (day_local - (int64_t) s.tz_min * MIN);
-  v.age = astro::moon_age(start + 12 * HOUR);
-  v.phase = astro::phase_index(v.age);
-  astro::sun_rise_set(start, s.lat, s.lon, &v.rise, &v.set);
+  v.engine = s.engine;
   const int hrs[4] = {18, 0, 6, 12};
-  for (int i = 0; i < 4; i++)
-    v.ev[i] = astro::moon_hour_angle_time(start, s.lon, hrs[i]);
+  if (s.engine == ENGINE_GMW15) {
+    const double lat = gmw15::whole_deg(s.lat), lon = gmw15::whole_deg(s.lon);
+    v.age = gmw15::moon_age(day_local, s.tz_min);
+    gmw15::sun_rise_set(day_local, s.tz_min, lat, lon, &v.rise, &v.set);
+    for (int i = 0; i < 4; i++)
+      v.ev[i] = gmw15::hour_angle_time(day_local, s.tz_min, lon, hrs[i]);
+  } else {
+    const double start = (double) (day_local - (int64_t) s.tz_min * MIN);
+    v.age = astro::moon_age(start + 12 * HOUR);
+    astro::sun_rise_set(start, s.lat, s.lon, &v.rise, &v.set);
+    for (int i = 0; i < 4; i++)
+      v.ev[i] = astro::moon_hour_angle_time(start, s.lon, hrs[i]);
+  }
+  v.phase = astro::phase_index(v.age);
   return v;
 }
 

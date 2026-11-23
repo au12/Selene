@@ -57,6 +57,11 @@ class SeleneClock : public Component {
   void set_24h(bool on);
   void set_latitude(float v);
   void set_longitude(float v);
+  // Astronomy engine for the face: "Modern" (accurate) or "GMW-15 logic" (Casio's 1989 method)
+  void set_engine(uint8_t e);
+  void set_engine_by_name(const std::string &name);
+  uint8_t engine() const { return watch_.s.engine; }
+  std::string engine_name() const { return watch_.s.engine == ENGINE_GMW15 ? "GMW-15 logic" : "Modern"; }
   int alarm_hour() const { return watch_.s.alarm_h; }
   int alarm_minute() const { return watch_.s.alarm_m; }
   bool alarm_enabled() const { return watch_.s.alarm_on; }
@@ -91,7 +96,7 @@ class SeleneClock : public Component {
   struct Persist {
     uint8_t version;
     uint8_t face;
-    uint8_t h24, alarm_h, alarm_m, alarm_on, chime_on, pad;
+    uint8_t h24, alarm_h, alarm_m, alarm_on, chime_on, engine;  // `engine` was padding (0 = modern) before
     float lat, lon;
   };
   int64_t now_ms_();

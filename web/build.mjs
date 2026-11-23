@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rd = (p) => fs.readFileSync(path.join(root, p), 'utf8');
-const js = ['shared/glyphs.js', 'shared/astro.js', 'shared/faces.js', 'shared/module.js', 'web/app.js'].map(rd).join('\n;\n');
+const js = ['shared/glyphs.js', 'shared/astro.js', 'shared/gmw15.js', 'shared/faces.js', 'shared/module.js', 'web/app.js'].map(rd).join('\n;\n');
 const css = rd('web/app.css').replace(/\n\s*/g, '\n');
 const icon = 'data:image/svg+xml,' + encodeURIComponent(rd('assets/icon.svg').replace(/\n\s*/g, ' '));
 const pwa = process.argv.includes('--pwa');

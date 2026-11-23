@@ -34,6 +34,7 @@ void SeleneClock::setup() {
     watch_.s.alarm_m = p.alarm_m % 60;
     watch_.s.alarm_on = p.alarm_on;
     watch_.s.chime_on = p.chime_on;
+    watch_.s.engine = p.engine == ENGINE_GMW15 ? ENGINE_GMW15 : ENGINE_MODERN;
     if (std::isfinite(p.lat) && std::isfinite(p.lon)) {
       watch_.s.lat = p.lat;
       watch_.s.lon = p.lon;
@@ -55,8 +56,9 @@ void SeleneClock::dump_config() {
                 "Selene clock:\n"
                 "  Faces: %d (active: %s)\n"
                 "  Location: %.2f, %.2f\n"
+                "  Astronomy: %s\n"
                 "  Rotation: %d",
-                FACE_COUNT, FACES[face_]->name, watch_.s.lat, watch_.s.lon, rotation_);
+                FACE_COUNT, FACES[face_]->name, watch_.s.lat, watch_.s.lon, this->engine_name().c_str(), rotation_);
 }
 
 int64_t SeleneClock::now_ms_() {
@@ -167,6 +169,7 @@ void SeleneClock::save_() {
   p.alarm_m = watch_.s.alarm_m;
   p.alarm_on = watch_.s.alarm_on;
   p.chime_on = watch_.s.chime_on;
+  p.engine = watch_.s.engine;
   p.lat = watch_.s.lat;
   p.lon = watch_.s.lon;
   pref_.save(&p);
@@ -285,6 +288,14 @@ void SeleneClock::set_latitude(float v) {
 void SeleneClock::set_longitude(float v) {
   watch_.s.lon = std::fmax(-180.0f, std::fmin(180.0f, v));
   this->on_event_(EV_SAVE);
+}
+void SeleneClock::set_engine(uint8_t e) {
+  watch_.s.engine = e == ENGINE_GMW15 ? ENGINE_GMW15 : ENGINE_MODERN;
+  this->on_event_(EV_SAVE);
+}
+void SeleneClock::set_engine_by_name(const std::string &name) {
+  const bool gmw = str_equals_case_insensitive(name, "GMW-15 logic") || str_equals_case_insensitive(name, "gmw15");
+  this->set_engine(gmw ? ENGINE_GMW15 : ENGINE_MODERN);
 }
 void SeleneClock::stop_alarm() {
   if (watch_.ringing())

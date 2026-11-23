@@ -296,6 +296,15 @@ select:
     lambda: 'return id(selene_clock).face_name();'
     set_action:
       - lambda: 'id(selene_clock).set_face_by_name(x);'
+  - platform: template           # what the face computes; the sensors below always report modern values
+    id: astronomy_select
+    name: Astronomy
+    icon: mdi:telescope
+    options: [Modern, GMW-15 logic]
+    lambda: 'return id(selene_clock).engine_name();'
+    set_action:
+      - lambda: 'id(selene_clock).set_engine_by_name(x);'
+      - component.update: astronomy_select
 
 number:
   - platform: template

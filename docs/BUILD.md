@@ -109,3 +109,6 @@ The buttons follow the web simulator (see the table in the README). Clock-specif
 - Swiping left or right changes the face. Home Assistant stays in sync.
 - Time and time zone come from the network, so SET opens the location screen directly. GMT is shown read-only
   and follows your time zone, including DST.
+- The *Astronomy* select in Home Assistant switches what the face computes: **Modern** (accurate) or **GMW-15
+  logic** (Casio's 1989 method, location in whole degrees). It is saved on the clock. The moon/sun sensors published
+  to Home Assistant always use the modern engine.

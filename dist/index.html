@@ -103,6 +103,30 @@ input[type=range]{accent-color:var(--gold);width:110px}
 .toggle input:checked::after{left:16px}
 .foot{color:#5f6c80;font-size:11.5px;margin-top:6px}
 .foot a{color:#8fb4d8}
+.setlbl{font-size:12px;color:var(--mute);margin:0 0 6px}
+.mode-pill.alt,.badge.alt{background:#1c2840;color:#c9d2e0;border-color:#2a3850}
+/* GMW-15 vs modern */
+.cmp{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:4px 10px;font-size:12.5px;font-variant-numeric:tabular-nums;align-items:baseline}
+.cmp .h{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#5f6c80}
+.cmp .k{color:var(--mute);white-space:nowrap}
+.cmp .v{text-align:right;color:#9aa6b8}
+.cmp .v.on{color:var(--ink);font-weight:600}
+.cmp .h.v.on{color:var(--accent);font-weight:600}
+.cmp .d{text-align:right;color:#5f6c80;min-width:48px}
+.cmp .d.big{color:var(--warn)}
+/* watch log */
+details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
+.logform{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.logform label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--mute)}
+.logform input{width:100%}
+.loglist{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px}
+.logitem{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 9px;font-size:12px}
+.logitem .t{display:flex;align-items:baseline;gap:8px}
+.logitem .t span:first-of-type{flex:1;color:var(--mute)}
+.logitem .ok{color:var(--accent)}
+.logitem .miss{color:var(--warn)}
+.logitem div.miss{margin-top:3px;font-variant-numeric:tabular-nums}
+.logitem button{border:0;background:transparent;color:#5f6c80;cursor:pointer;padding:0 2px;font-size:14px;line-height:1}
 .ring-banner{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:#3a2a10;border:1px solid #7a5a22;color:#ffd38a;padding:6px 14px;border-radius:999px;font-size:12px;letter-spacing:.08em;z-index:4;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.55}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -140,6 +164,11 @@ input[type=range]{accent-color:var(--gold);width:110px}
       <dl class="kv" id="sky"></dl>
     </div>
     <div class="card">
+      <h3><span>GMW-15 vs modern</span><span class="mode-pill alt" id="cmpDay">—</span></h3>
+      <div class="cmp" id="cmp"></div>
+      <div class="foot" id="cmpFoot"></div>
+    </div>
+    <div class="card">
       <h3>Time machine</h3>
       <div class="row" id="speedRow"></div>
       <div class="row">
@@ -156,6 +185,9 @@ input[type=range]{accent-color:var(--gold);width:110px}
     </div>
     <div class="card">
       <h3>Settings</h3>
+      <div class="setlbl">Astronomy</div>
+      <div class="seg" id="engineSeg"></div>
+      <div class="foot" id="engineNote"></div>
       <label class="toggle">Sound<input type="checkbox" id="optSound"></label>
       <div class="row"><span class="foot">Volume</span><input type="range" id="optVol" min="0" max="1" step="0.05"></div>
       <label class="toggle">Segment ghosting<input type="checkbox" id="optGhost"></label>
@@ -164,7 +196,27 @@ input[type=range]{accent-color:var(--gold);width:110px}
       <label class="toggle">Authentic calculation delays<input type="checkbox" id="optAuth"></label>
       <div class="row"><button class="chip" id="sync">Sync to this device</button><button class="chip" id="lcdTest">LCD test</button><button class="chip" id="demo">Demo</button></div>
     </div>
-    <div class="foot">Keys: <b>B</b>/↑ SET · <b>C</b>/↓/Space MODE (hold 3 s: demo) · <b>D</b>/← REV · <b>A</b>/→ FWD · <b>L</b> light/snooze · <b>1–3</b> model.<br>Moon data computed live in your browser; times shown in 5-minute units like the original module.</div>
+    <div class="card">
+      <h3><span>Watch log</span><span class="badge alt" id="logCount">0</span></h3>
+      <details id="logBox">
+        <summary>Compare readings from a real GMW-15</summary>
+        <p class="foot">Set the real watch to the same GMT offset and whole-degree LO/LA as this one, dial a date in moon time and sunrise/sunset mode, and type what it shows. Leave a field blank if you didn't read it; type <b>-</b> for <b>-:--</b>. Times without a/p are matched to the nearer half of the day.</p>
+        <div class="logform">
+          <label>Date<input type="date" id="lg_date"></label>
+          <label>Moon age<input type="text" id="lg_age" inputmode="decimal" placeholder="13.6" autocomplete="off"></label>
+          <label>Sunrise<input type="text" id="lg_rise" placeholder="7:10a" autocomplete="off"></label>
+          <label>Sunset<input type="text" id="lg_set" placeholder="5:20p" autocomplete="off"></label>
+          <label>Moon −1 · 18h<input type="text" id="lg_m0" autocomplete="off"></label>
+          <label>Moon −2 · 0h<input type="text" id="lg_m1" autocomplete="off"></label>
+          <label>Moon −3 · 6h<input type="text" id="lg_m2" autocomplete="off"></label>
+          <label>Moon −4 · 12h<input type="text" id="lg_m3" autocomplete="off"></label>
+        </div>
+        <div class="row"><button class="chip" id="lgAdd">Add reading</button><button class="chip" id="lgFill">Prefill from GMW-15 logic</button><span class="foot" id="lgMsg"></span></div>
+        <div class="loglist" id="lgList"></div>
+        <div class="row"><button class="chip" id="lgCsv">Export CSV</button><button class="chip" id="lgClear">Clear log</button></div>
+      </details>
+    </div>
+    <div class="foot">Keys: <b>B</b>/↑ SET · <b>C</b>/↓/Space MODE (hold 3 s: demo) · <b>D</b>/← REV · <b>A</b>/→ FWD · <b>L</b> light/snooze · <b>1–3</b> model.<br>Moon data computed live in your browser with the engine chosen in Settings; times shown in 5-minute units like the original module.</div>
   </aside>
 </main>
 <script>/* Generated by tools/gen_glyphs.mjs from OFL fonts (Michroma, Saira, Saira Condensed). Do not edit. */
@@ -370,6 +422,169 @@ input[type=range]{accent-color:var(--gold);width:110px}
     DAY, SYNODIC, rev, wrap180, dayNumber, gmst, sunEq, moonEq, altitude, moonHourAngle,
     elongation, lastNewMoon, moonAge, illumination, sunRiseSet, moonRiseSet, moonHourAngleTime,
     phaseIndex, hourAngleIndex, round5, roots,
+  };
+});
+
+;
+/*
+ * Selene "GMW-15 logic" astronomy engine
+ *
+ * Casio's own low-precision method for a moon-data watch, transcribed from its patent family
+ * EP 0 400 542 B1 / US 5,208,790 "Astronomical data indicating device" (Hiroshi Sato, Casio Hamura R&D
+ * Center, priority JP 29 May 1989). The patent's watch shows the GMW-15's data set: the moon's hour angle on
+ * a segment strip marked 0/6/12/18, a nine-step phase graph, moon age, and sunrise/sunset, all from a GMT
+ * offset and a latitude/longitude. It was filed three years after the GMW-15 (module 832, 1986), so this is
+ * Casio's documented method from the same lineage, not a ROM dump.
+ *
+ * What a 4-bit watch chip can afford, and how the engineers got there:
+ *  - one day count from 1900 with INT/FRAC tricks → Julian centuries from J2000.0
+ *  - the Moon's right ascension from a seven-term cosine series written directly in hours (no ecliptic →
+ *    equator rotation: that conversion is folded into the series as a term at twice the mean longitude)
+ *  - the Greenwich hour angle of the Moon at 0h UT today and tomorrow gives the length of the lunar day;
+ *    every other moon time is linear interpolation, and the hour angle is recalculated once an hour
+ *  - moon "times" are hour-angle crossings (0h/6h/12h/18h), so the Moon needs no declination and no latitude
+ *  - moon age from the Moon–Sun elongation (two-term Moon, one-term Sun) scaled by a flat 29.53 days
+ *  - the Sun: a day-of-year equation of time, a six-term declination series (the terms match Y. Kubo's 1980
+ *    Japan Hydrographic Department series for calculator users, valid 1970–2030) and the arccos half-day arc
+ *
+ * RECON marks places where the patent's OCR text is garbled and a value had to be reconstructed.
+ * CHOICE marks interpretation choices (which instant a daily value belongs to). Comparing against a real
+ * watch settles them; see the watch log in the web app.
+ *
+ * Conventions follow astro.js: times are Unix ms (UTC); `dayLocal` is local midnight expressed as local ms
+ * (the module's convention); longitude east-positive degrees; hours as decimals.
+ * Ported 1:1 to C++ in firmware/components/selene/gmw15.cpp — keep the two in sync.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.SeleneGMW15 = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const DAY = 86400000, HOUR = 3600000, MIN = 60000;
+  const RAD = Math.PI / 180;
+  /** Mean synodic month the watch assumes (the real one varies from ~29.2 to ~29.8 days). */
+  const SYNODIC = 29.53;
+  /** Horizon term of the half-day arc, as printed: B = −0.017 / (cos φ · cos δ), i.e. the Sun's centre about
+   *  0.97° below the horizon. The conventional −0.833° would be 0.0145; this makes each day ~1.5 min longer. */
+  const HORIZON = 0.017;
+
+  const frac = (x) => x - Math.floor(x);
+  const INT = Math.floor;
+  const rev = (x) => x - Math.floor(x / 360) * 360;
+  const mod24 = (x) => x - Math.floor(x / 24) * 24;
+  const cosd = (x) => Math.cos(rev(x) * RAD);
+  const sind = (x) => Math.sin(rev(x) * RAD);
+  /** The watch keeps its location in whole degrees. Round half up (identical in JS and C++). */
+  const wholeDeg = (x) => Math.floor(x + 0.5);
+
+  /** Patent day count Z: day number counted from 1900 (it is JD − 2414988.5), plus hours as a fraction.
+   *  W=(YE−1900)/4, F=FRAC(W), A=INT(1461·W), B=INT[(MN+7)/10], C=INT(1−F), D=INT[0.44·(MN+4.4)],
+   *  Z = A + 31·MN + DA + (B−1)·C − B·D + HO/24.  Valid 1901–2099. */
+  function dayCount(ye, mn, da, ho) {
+    const W = (ye - 1900) / 4, F = frac(W), A = INT(1461 * W);
+    const B = INT((mn + 7) / 10), C = INT(1 - F), D = INT(0.44 * (mn + 4.4));
+    return A + 31 * mn + da + (B - 1) * C - B * D + (ho || 0) / 24;
+  }
+  /** Z of the calendar date of a (local or UTC) ms value at 0h. */
+  function zDay(ms) {
+    const d = new Date(Math.floor(ms / DAY) * DAY);
+    return dayCount(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), 0);
+  }
+  /** Julian centuries from 2000 Jan 1, 12h (t = (Z − 36556.5) / 36525). */
+  const centuries = (Z) => (Z - 36556.5) / 36525;
+
+  /** Greenwich sidereal time at 0h UT, hours. Patent: K = 24·FRAC(0.0027379·Y), Y = Z − 25012 (JD − 2440000.5).
+   *  At 0h UT, Y is a whole number, so the integer part of 1.0027379·Y can be dropped.
+   *  RECON: the printed line has lost its epoch term; 0.671262 rev is the standard value for that epoch. */
+  function gst0(Z0) { return 24 * frac(0.671262 + 0.0027379 * (Z0 - 25012)); }
+
+  /** The Moon's right ascension in hours, seven-term series (patent, verbatim). Decoded: mean longitude,
+   *  equation of centre (6.29°), reduction to the equator (2.45° at twice the mean longitude), evection
+   *  (1.27°), two node terms, variation (0.66°). */
+  function moonRA(T) {
+    const a = 32084.52539 * T + 14.55441
+      + 0.41925 * cosd(477198.868 * T + 44.963)
+      + 0.16358 * cosd(962535.762 * T + 166.633)
+      + 0.08494 * cosd(413335.350 * T + 10.740)
+      + 0.07104 * cosd(1934.140 * T + 324.960)
+      + 0.07048 * cosd(964469.900 * T + 41.590)
+      + 0.04389 * cosd(890534.220 * T + 145.700);
+    return 24 * frac(a / 24);
+  }
+
+  /** Greenwich hour angle of the Moon at 0h UT of day Z0 (JK = K − α, in hours). */
+  function gha0(Z0) { return mod24(gst0(Z0) - moonRA(centuries(Z0))); }
+
+  /** Lunar day in hours from two consecutive 0h UT hour angles: LNR = 576 / DJK (or DJK + 24). */
+  function lunarDay(Z0) {
+    const djk = gha0(Z0 + 1) - gha0(Z0);
+    return djk > 0 ? 576 / djk : 576 / (djk + 24);
+  }
+
+  /** The Moon's local hour angle (hours, [0,24)) at UTC `ms`, by linear interpolation from 0h UT. */
+  function hourAngle(ms, lon) {
+    const dayUT = Math.floor(ms / DAY) * DAY, Z0 = zDay(dayUT);
+    return mod24(gha0(Z0) + lon / 15 + ((ms - dayUT) / HOUR) * 24 / lunarDay(Z0));
+  }
+
+  /** UTC ms at which the Moon's local hour angle reaches `h` (0, 6, 12, 18) during the local day `dayLocal`,
+   *  or null when the lunar day steps over it. Anchored at 0h UT of the same calendar date, as in the patent's
+   *  worked example (Tokyo); the event recurs every lunar day (> 24 h), so at most one falls in a day. */
+  function hourAngleTime(dayLocal, tzMin, lon, h) {
+    const Z0 = zDay(dayLocal), H0 = gha0(Z0), L = lunarDay(Z0);
+    let x = mod24(h - lon / 15 - H0) * L / 24 + tzMin / 60;   // local clock hours after midnight, mod L
+    x -= Math.floor(x / L) * L;
+    if (x >= 24) return null;
+    return Math.trunc(dayLocal - tzMin * MIN + x * HOUR);
+  }
+
+  /** Moon age in days for the local date `dayLocal`. Patent: age = 29.53·E/360 − (time difference)/24 − 0.5,
+   *  E = λ(Moon) − λ(Sun). CHOICE: E taken at 0h UT of the following date (the last value the patent's flow
+   *  computes), which makes this the age at local noon — the Japanese almanac convention (正午月齢). */
+  function moonAge(dayLocal, tzMin) {
+    const T = centuries(zDay(dayLocal) + 1);
+    // RECON: the OCR reads 4572000 and 360000 for the two anomaly rates; 477200 and 36000 fit the other terms.
+    const lm = 481267.9 * T + 218.3 + 6.3 * cosd(45 + 477200 * T) + 1.3 * cosd(11 + 413300 * T);
+    const ls = 36000.8 * T + 280.5 + 1.9 * cosd(268 + 36000 * T);
+    let age = SYNODIC * rev(lm - ls) / 360 - tzMin / 1440 - 0.5;
+    if (age < 0) age += SYNODIC;
+    else if (age >= SYNODIC) age -= SYNODIC;
+    return age;
+  }
+
+  /** Equation of time in seconds for day-of-year t3 (patent: C + D). RECON: OCR reads 360/360.25. */
+  function equationOfTime(t3) {
+    const A = (t3 - 80.5) * 360 / 365.25, B = (t3 - 4.5) * 360 / 365.25;
+    return -460.64 * sind(B) - 4.82 * sind(2 * B) + 592.32 * sind(2 * A) - 12.76 * sind(4 * A);
+  }
+
+  /** The Sun's declination in degrees, six-term series (patent; Kubo 1980). */
+  function sunDec(T) {
+    return 23.26 * cosd(36001 * T + 190) + 0.39 * cosd(2 * T + 13) + 0.39 * cosd(72000 * T + 188)
+      + 0.16 * cosd(108002 * T + 211) + 0.01 * cosd(72003 * T + 34) + 0.01 * cosd(144001 * T + 209);
+  }
+
+  /** Sunrise and sunset (UTC ms, or null in polar day/night) for the local date `dayLocal`.
+   *  Median (solar noon) = 12 − longitude/15 + GMT difference − EoT/3600; SSTN = arccos(B − A)/15 with
+   *  A = tan φ·tan δ and B = −0.017/(cos φ·cos δ). CHOICE: δ evaluated at the median time. */
+  function sunRiseSet(dayLocal, tzMin, lat, lon) {
+    const d = new Date(Math.floor(dayLocal / DAY) * DAY);
+    const y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, da = d.getUTCDate();
+    const t3 = dayCount(y, mo, da, 0) - dayCount(y, 1, 0, 0);
+    const tzH = tzMin / 60;
+    const median = 12 - lon / 15 + tzH - equationOfTime(t3) / 3600;
+    const dec = sunDec(centuries(dayCount(y, mo, da, median - tzH)));
+    const A = Math.tan(lat * RAD) * Math.tan(dec * RAD), B = -HORIZON / (Math.cos(lat * RAD) * Math.cos(dec * RAD));
+    const x = B - A;
+    if (x < -1 || x > 1) return { rise: null, set: null };
+    const sstn = Math.acos(x) / RAD / 15;
+    const base = dayLocal - tzMin * MIN;
+    return { rise: Math.trunc(base + (median - sstn) * HOUR), set: Math.trunc(base + (median + sstn) * HOUR) };
+  }
+
+  return {
+    SYNODIC, HORIZON, wholeDeg, dayCount, zDay, centuries, gst0, moonRA, gha0, lunarDay, hourAngle,
+    hourAngleTime, moonAge, equationOfTime, sunDec, sunRiseSet,
   };
 });
 
@@ -969,12 +1184,16 @@ ${extraCss}
  * Time model: the module is given `now` (UTC ms, possibly simulated). Watch UTC = now + userOffset.
  * Local watch time = watch UTC + tzMin. Location = lat/lon (degrees, east positive).
  *
- * Ported 1:1 to C++ in firmware/components/selene/watch_logic.cpp — keep in sync.
+ * Astronomy engine (settings.engine): 'modern' = astro.js (arc-minute positions, root-found event times);
+ * 'gmw15' = gmw15.js, Casio's own low-precision method from its 1989 patent: location in whole degrees,
+ * moon age once a day (local noon), hour angle recalculated at the top of each hour, interpolated moon times.
+ *
+ * Ported 1:1 to C++ in firmware/components/selene/watch.cpp — keep in sync.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./astro.js'));
-  else root.SeleneModule = factory(root.SeleneAstro);
-})(typeof self !== 'undefined' ? self : this, function (A) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./astro.js'), require('./gmw15.js'));
+  else root.SeleneModule = factory(root.SeleneAstro, root.SeleneGMW15);
+})(typeof self !== 'undefined' ? self : this, function (A, G) {
   'use strict';
   const DAY = 86400000, HOUR = 3600000, MIN = 60000;
 
@@ -1039,8 +1258,10 @@ ${extraCss}
     let tz = 0;
     try { tz = -new Date().getTimezoneOffset(); } catch (e) { /* ignore */ }
     return { tzMin: tz, lat: 40.7, lon: -74.0, h24: false, alarmH: 7, alarmM: 0, alarmOn: false, chimeOn: false,
-      userOffset: 0, dowOffset: 0, authentic: false, snoozeMin: 5 };
+      userOffset: 0, dowOffset: 0, authentic: false, snoozeMin: 5, engine: 'modern' };
   }
+  /** Astronomy engines: [id, label]. */
+  const ENGINES = [['gmw15', 'GMW-15 logic'], ['modern', 'Modern']];
 
   class Module {
     constructor(settings, hooks) {
@@ -1077,24 +1298,47 @@ ${extraCss}
 
     // ------------------------------------------------------------ astronomy (cached)
     current(now) {
-      const t = this.utc(now), key = Math.floor(t / 1000) + '|' + this.s.lat + '|' + this.s.lon;
+      const S = this.s;
+      if (S.engine === 'gmw15') {
+        // GMW-15 logic: the hour angle is recalculated at the top of each hour, the moon age once a day
+        const loc = this.local(now), hourLocal = Math.floor(loc / HOUR) * HOUR, dayLocal = Math.floor(loc / DAY) * DAY;
+        const lon = G.wholeDeg(S.lon), key = 'g|' + hourLocal + '|' + lon + '|' + S.tzMin;
+        if (this._cur.key !== key) {
+          const age = G.moonAge(dayLocal, S.tzMin);
+          this._cur = { key, age, phase: A.phaseIndex(age), ha: G.hourAngle(hourLocal - S.tzMin * MIN, lon) };
+          this._cur.haIdx = A.hourAngleIndex(this._cur.ha);
+        }
+        return this._cur;
+      }
+      const t = this.utc(now), key = Math.floor(t / 1000) + '|' + S.lat + '|' + S.lon;
       if (this._cur.key !== key) {
         const age = A.moonAge(t);
-        this._cur = { key, age, phase: A.phaseIndex(age), ha: A.moonHourAngle(t, this.s.lon) };
+        this._cur = { key, age, phase: A.phaseIndex(age), ha: A.moonHourAngle(t, S.lon) };
         this._cur.haIdx = A.hourAngleIndex(this._cur.ha);
       }
       return this._cur;
     }
-    dayData(dayLocal) {
-      const key = dayLocal + '|' + this.s.lat + '|' + this.s.lon + '|' + this.s.tzMin;
+    /**
+     * What the watch shows for the local date `dayLocal` (local ms of midnight): moon age at local noon, phase slot,
+     * sunrise/sunset and the moon's 18h/0h/6h/12h hour-angle times (UTC ms or null).
+     * `engine` defaults to the current setting, `loc` ({lat, lon, tzMin}) to the watch's location.
+     */
+    dayData(dayLocal, engine, loc) {
+      const S = loc || this.s, eng = engine || this.s.engine;
+      const key = eng + '|' + dayLocal + '|' + S.lat + '|' + S.lon + '|' + S.tzMin;
       let v = this._dayCache.get(key);
       if (!v) {
-        const start = dayLocal - this.s.tzMin * MIN; // UTC ms of local midnight
-        const noon = start + 12 * HOUR;
-        const age = A.moonAge(noon);
-        const sun = A.sunRiseSet(start, this.s.lat, this.s.lon);
-        const ev = [18, 0, 6, 12].map((h) => A.moonHourAngleTime(start, this.s.lon, h));
-        v = { age, phase: A.phaseIndex(age), sun, ev };
+        if (eng === 'gmw15') {
+          const lat = G.wholeDeg(S.lat), lon = G.wholeDeg(S.lon);
+          const age = G.moonAge(dayLocal, S.tzMin);
+          v = { age, phase: A.phaseIndex(age), sun: G.sunRiseSet(dayLocal, S.tzMin, lat, lon),
+            ev: [18, 0, 6, 12].map((h) => G.hourAngleTime(dayLocal, S.tzMin, lon, h)) };
+        } else {
+          const start = dayLocal - S.tzMin * MIN; // UTC ms of local midnight
+          const age = A.moonAge(start + 12 * HOUR);
+          v = { age, phase: A.phaseIndex(age), sun: A.sunRiseSet(start, S.lat, S.lon),
+            ev: [18, 0, 6, 12].map((h) => A.moonHourAngleTime(start, S.lon, h)) };
+        }
         if (this._dayCache.size > 64) this._dayCache.clear();
         this._dayCache.set(key, v);
       }
@@ -1457,14 +1701,14 @@ ${extraCss}
     status() { return { mode: this.set ? this.set.kind.toUpperCase() + '-SET' : this.mode, demo: !!this.demo, ring: !!this.ring, sw: this.sw.running }; }
   }
 
-  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, STARS, defaults };
+  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, STARS, ENGINES, defaults };
 });
 
 ;
-/* Selene web simulator — UI shell. Uses SeleneAstro, SeleneFaces, SeleneModule, SeleneGlyphs. */
+/* Selene web simulator — UI shell. Uses SeleneAstro, SeleneGMW15, SeleneFaces, SeleneModule, SeleneGlyphs. */
 (function () {
   'use strict';
-  const A = window.SeleneAstro, F = window.SeleneFaces, MOD = window.SeleneModule;
+  const A = window.SeleneAstro, G = window.SeleneGMW15, F = window.SeleneFaces, MOD = window.SeleneModule;
   const $ = (s, r = document) => r.querySelector(s);
   const DAY = 86400000, HOUR = 3600000, MIN = 60000;
   const store = {
@@ -1891,8 +2135,42 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     const simulated = sim.speed !== 1 || Math.abs(now - Date.now()) > 3000 || S.userOffset !== 0;
     $('#simBadge').classList.toggle('hidden', !simulated);
     const latS = `${Math.abs(S.lat).toFixed(1)}°${S.lat >= 0 ? 'N' : 'S'}`, lonS = `${Math.abs(S.lon).toFixed(1)}°${S.lon >= 0 ? 'E' : 'W'}`;
-    const tz = S.tzMin, tzS = `GMT${tz < 0 ? '−' : '+'}${Math.floor(Math.abs(tz) / 60)}${Math.abs(tz) % 60 ? ':' + String(Math.abs(tz) % 60).padStart(2, '0') : ''}`;
-    $('#locInfo').textContent = `${latS} ${lonS} · ${tzS} · watch shows ${fmtDate(t)}`;
+    $('#locInfo').textContent = `${latS} ${lonS} · ${gmtStr(S.tzMin)} · watch shows ${fmtDate(t)}`;
+    updateCompare(now);
+  }
+  const gmtStr = (tz) => `GMT${tz < 0 ? '−' : '+'}${Math.floor(Math.abs(tz) / 60)}${Math.abs(tz) % 60 ? ':' + String(Math.abs(tz) % 60).padStart(2, '0') : ''}`;
+  const placeStr = (lat, lon) => `${Math.abs(lat)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon)}°${lon >= 0 ? 'E' : 'W'}`;
+  const fmtDay = (dayLocal) => new Date(dayLocal).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+
+  // ------------------------------------------------------------------ GMW-15 logic vs modern, for the day on the watch
+  /** The date the watch is showing: the one dialled in moon time / sunrise-sunset mode, else today. */
+  const dayShown = (now) => ((mod.mode === 'MOON' || mod.mode === 'SUN') && mod.sel ? mod.sel.day : mod.todayLocal(now));
+  const CMP_ROWS = [['Moon age', 'age'], ['Sunrise', 'rise'], ['Sunset', 'set'], ['Moon 18h · −1', 0], ['Moon 0h · −2', 1], ['Moon 6h · −3', 2], ['Moon 12h · −4', 3]];
+  const pick = (dd, f) => (f === 'age' ? dd.age : f === 'rise' ? dd.sun.rise : f === 'set' ? dd.sun.set : dd.ev[f]);
+  const signed = (x, unit, digits = 0) => (Math.abs(x) < 0.5 * 10 ** -digits ? '0' : `${x > 0 ? '+' : '−'}${Math.abs(x).toFixed(digits)} ${unit}`);
+  function updateCompare(now) {
+    const S = mod.s, day = dayShown(now), on = S.engine;
+    const g = mod.dayData(day, 'gmw15'), m = mod.dayData(day, 'modern');
+    const cls = (e) => (on === e ? ' on' : '');
+    let html = `<span class="h"></span><span class="h v${cls('gmw15')}">GMW-15</span><span class="h v${cls('modern')}">Modern</span><span class="h d">Δ</span>`;
+    for (const [label, f] of CMP_ROWS) {
+      const a = pick(g, f), b = pick(m, f);
+      let va, vb, d = '—', big = false;
+      if (f === 'age') {
+        va = a.toFixed(2); vb = b.toFixed(2);
+        let x = a - b; if (x > G.SYNODIC / 2) x -= G.SYNODIC; else if (x < -G.SYNODIC / 2) x += G.SYNODIC;
+        d = signed(x, 'd', 1); big = Math.abs(x) >= 0.5;
+      } else {
+        va = fmtT(a); vb = fmtT(b);
+        // difference of the minutes shown (times are truncated to the minute here)
+        if (a !== null && b !== null && Math.abs(a - b) < 12 * HOUR) { const x = Math.floor(a / MIN) - Math.floor(b / MIN); d = signed(x, 'm'); big = Math.abs(x) >= 5; }
+      }
+      html += `<span class="k">${label}</span><span class="v${cls('gmw15')}">${va}</span><span class="v${cls('modern')}">${vb}</span><span class="d${big ? ' big' : ''}">${d}</span>`;
+    }
+    $('#cmp').innerHTML = html;
+    $('#cmpDay').textContent = fmtDay(day);
+    $('#cmpFoot').textContent = `The date on the watch. GMW-15 logic uses ${placeStr(G.wholeDeg(S.lat), G.wholeDeg(S.lon))}, `
+      + 'whole degrees as the watch stores them. Exact times here; the watch rounds to 5 minutes.';
   }
 
   // ------------------------------------------------------------------ panel controls
@@ -1972,6 +2250,148 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   });
   $('#lcdTest').addEventListener('click', () => { lcdTestUntil = performance.now() + 2500; frame(); });
   $('#demo').addEventListener('click', () => { mod.set = null; mod.mode = 'TIME'; mod.sel = null; mod.demo = { start: performance.now() }; frame(); });
+
+  // astronomy engine
+  const ENGINE_SUB = { gmw15: 'Casio’s own method', modern: 'accurate' };
+  const ENGINE_NOTE = {
+    gmw15: 'Casio’s low-precision method from its 1989 patent: whole-degree location, moon age at local noon, the hour angle recalculated on the hour, moon times interpolated over the lunar day.',
+    modern: 'Arc-minute Sun and Moon positions; every event time solved to the second.',
+  };
+  $('#engineSeg').innerHTML = MOD.ENGINES.map(([id, label]) => `<button data-engine="${id}">${label}<small>${ENGINE_SUB[id]}</small></button>`).join('');
+  function markEngine() {
+    document.querySelectorAll('#engineSeg button').forEach((b) => b.classList.toggle('on', b.dataset.engine === mod.s.engine));
+    $('#engineNote').textContent = ENGINE_NOTE[mod.s.engine] || '';
+  }
+  $('#engineSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || b.dataset.engine === mod.s.engine) return;
+    mod.s.engine = b.dataset.engine; mod._cur.key = null; mod.save(); markEngine(); lastPanel = -1e9; frame();
+  });
+  markEngine();
+
+  // ------------------------------------------------------------------ watch log: readings from a real watch vs GMW-15 logic
+  const LOG_FIELDS = ['age', 'rise', 'set', 0, 1, 2, 3];
+  const LOG_NAME = { age: 'Age', rise: 'Sunrise', set: 'Sunset', 0: 'Moon −1', 1: 'Moon −2', 2: 'Moon −3', 3: 'Moon −4' };
+  const LOG_CSV = { age: 'moon_age', rise: 'sunrise', set: 'sunset', 0: 'moon_ha18', 1: 'moon_ha0', 2: 'moon_ha6', 3: 'moon_ha12' };
+  const inputOf = (f) => $('#lg_' + (typeof f === 'number' ? 'm' + f : f));
+  let wlog = store.get('watchlog', []);
+  if (!Array.isArray(wlog)) wlog = [];
+  const saveLog = () => store.set('watchlog', wlog);
+  const dayOf = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const isoOf = (dayLocal) => new Date(dayLocal).toISOString().slice(0, 10);
+  const p2 = (n) => String(n).padStart(2, '0');
+  const hm = (min) => (min === 'none' ? '-:--' : `${Math.floor(min / 60)}:${p2(min % 60)}`);
+  /** As the watch shows it: 12 h with a/p unless the watch is set to 24 h. */
+  const hmw = (min) => { if (min === 'none' || mod.s.h24) return hm(min); const h = Math.floor(min / 60); return `${h % 12 || 12}:${p2(min % 60)}${h < 12 ? 'a' : 'p'}`; };
+  const hms = (min) => { if (min === null) return ''; const s = Math.round((((min % 1440) + 1440) % 1440) * 60); return `${p2(Math.floor(s / 3600) % 24)}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}`; };
+  const wrapMin = (x) => ((x + 720) % 1440 + 1440) % 1440 - 720;
+  /** What GMW-15 logic would put on the LCD for a log entry (times as minutes after local midnight, 'none' = -:--),
+   *  plus the exact GMW-15 and modern values. */
+  function modelFor(e) {
+    const day = dayOf(e.date), loc = { lat: e.lat, lon: e.lon, tzMin: e.tzMin };
+    const g = mod.dayData(day, 'gmw15', loc), m = mod.dayData(day, 'modern', loc);
+    const disp = (t) => (t === null ? 'none' : ((Math.round((A.round5(t) + e.tzMin * MIN - day) / MIN) % 1440) + 1440) % 1440);
+    const exact = (t) => (t === null ? null : (t + e.tzMin * MIN - day) / MIN);
+    const out = { age: { disp: Math.floor(g.age * 10 + 1e-6) / 10, exact: g.age, modern: m.age } };
+    for (const f of LOG_FIELDS.slice(1)) { const a = pick(g, f), b = pick(m, f); out[f] = { disp: disp(a), exact: exact(a), modern: exact(b) }; }
+    return out;
+  }
+  /** Parse "7:10", "7:10a", "5:20 pm", "17:20", "1720"; "-" / "-:--" = no event; blank = not read (null).
+   *  Without a/p, a 1–12 hour is put in whichever half of the day is nearer the model's value. */
+  function parseTime(str, model) {
+    const s = str.trim().toLowerCase();
+    if (!s) return null;
+    if (/^-+(:-+)?$/.test(s)) return 'none';
+    const m = s.match(/^(\d{1,2})[:.]?(\d{2})\s*([ap])?\.?(m\.?)?$/);
+    if (!m) return undefined;
+    let h = +m[1]; const mi = +m[2];
+    if (h > 23 || mi > 59) return undefined;
+    if (m[3]) { if (h < 1 || h > 12) return undefined; return (h % 12 + (m[3] === 'p' ? 12 : 0)) * 60 + mi; }
+    let v = h * 60 + mi;
+    if (h >= 1 && h <= 12 && typeof model === 'number' && Math.abs(wrapMin(v + 720 - model)) < Math.abs(wrapMin(v - model))) v = (v + 720) % 1440;
+    return v;
+  }
+  let msgTimer = 0;
+  const say = (t) => { $('#lgMsg').textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('#lgMsg').textContent = ''; }, 3500); };
+  function renderLog() {
+    $('#logCount').textContent = wlog.length;
+    let total = 0, hit = 0;
+    const items = wlog.map((e, i) => {
+      const md = modelFor(e), miss = [];
+      let n = 0, ok = 0;
+      for (const f of LOG_FIELDS) {
+        const v = e.v[f];
+        if (v === null || v === undefined) continue;
+        n++;
+        const d = md[f].disp;
+        if (f === 'age') { if (Math.abs(v - d) < 0.05) ok++; else miss.push(`${LOG_NAME[f]} ${v.toFixed(1)} vs ${d.toFixed(1)}`); continue; }
+        if (v === d) { ok++; continue; }
+        const delta = v !== 'none' && d !== 'none' ? ` (${signed(wrapMin(v - d), 'm')})` : '';
+        miss.push(`${LOG_NAME[f]} ${hmw(v)} vs ${hmw(d)}${delta}`);
+      }
+      total += n; hit += ok;
+      return `<div class="logitem"><div class="t"><b>${e.date}</b><span>${placeStr(e.lat, e.lon)} · ${gmtStr(e.tzMin)}</span>`
+        + `<span class="${ok === n ? 'ok' : 'miss'}">${ok}/${n}</span><button data-del="${i}" aria-label="Delete reading">×</button></div>`
+        + (miss.length ? `<div class="miss">${miss.join(' · ')}</div>` : '') + '</div>';
+    }).reverse();
+    $('#lgList').innerHTML = (wlog.length ? `<div class="foot">${hit} of ${total} readings match GMW-15 logic exactly (watch vs model shown for the rest).</div>` : '') + items.join('');
+  }
+  const logBox = $('#logBox');
+  logBox.addEventListener('toggle', () => { if (logBox.open && !$('#lg_date').value) $('#lg_date').value = isoOf(dayShown(nowSim())); });
+  $('#lgFill').addEventListener('click', () => {
+    const date = $('#lg_date').value || isoOf(dayShown(nowSim()));
+    $('#lg_date').value = date;
+    const md = modelFor({ date, lat: G.wholeDeg(mod.s.lat), lon: G.wholeDeg(mod.s.lon), tzMin: mod.s.tzMin });
+    inputOf('age').value = md.age.disp.toFixed(1);
+    for (const f of LOG_FIELDS.slice(1)) inputOf(f).value = md[f].disp === 'none' ? '-' : hmw(md[f].disp);
+    say('Filled with what GMW-15 logic shows — change what your watch shows differently.');
+  });
+  $('#lgAdd').addEventListener('click', () => {
+    const date = $('#lg_date').value;
+    if (!date) return say('Pick a date first.');
+    const e = { date, tzMin: mod.s.tzMin, lat: G.wholeDeg(mod.s.lat), lon: G.wholeDeg(mod.s.lon), v: {}, at: Date.now() };
+    const md = modelFor(e);
+    let any = false;
+    for (const f of LOG_FIELDS) {
+      const raw = inputOf(f).value;
+      let v;
+      if (f === 'age') { v = raw.trim() === '' ? null : Number(raw.trim().replace(',', '.')); if (v !== null && !(v >= 0 && v < 30)) v = undefined; }
+      else v = parseTime(raw, md[f].disp);
+      if (v === undefined) { inputOf(f).focus(); return say(`Couldn't read ${LOG_NAME[f]}.`); }
+      e.v[f] = v;
+      if (v !== null) any = true;
+    }
+    if (!any) return say('Enter at least one reading.');
+    wlog.push(e); saveLog(); renderLog();
+    for (const f of LOG_FIELDS) inputOf(f).value = '';
+    say('Saved.');
+  });
+  $('#lgList').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-del]'); if (!b) return;
+    wlog.splice(+b.dataset.del, 1); saveLog(); renderLog();
+  });
+  let clearArmed = 0;
+  $('#lgClear').addEventListener('click', () => {
+    if (!wlog.length) return;
+    if (performance.now() - clearArmed > 3000) { clearArmed = performance.now(); return say('Tap “Clear log” again to delete every reading.'); }
+    wlog = []; saveLog(); renderLog(); clearArmed = 0; say('Log cleared.');
+  });
+  $('#lgCsv').addEventListener('click', () => {
+    if (!wlog.length) return say('Nothing logged yet.');
+    const rows = [['date', 'gmt_offset_min', 'lat', 'lon', 'field', 'watch', 'gmw15_display', 'gmw15_exact', 'modern_exact', 'match']];
+    for (const e of wlog) {
+      const md = modelFor(e);
+      for (const f of LOG_FIELDS) {
+        const v = e.v[f], r = md[f];
+        if (v === null || v === undefined) continue;
+        if (f === 'age') rows.push([e.date, e.tzMin, e.lat, e.lon, LOG_CSV[f], v.toFixed(1), r.disp.toFixed(1), r.exact.toFixed(3), r.modern.toFixed(3), Math.abs(v - r.disp) < 0.05 ? 1 : 0]);
+        else rows.push([e.date, e.tzMin, e.lat, e.lon, LOG_CSV[f], hm(v), hm(r.disp), hms(r.exact), hms(r.modern), v === r.disp ? 1 : 0]);
+      }
+    }
+    const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n') + '\n'], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'selene-watch-log.csv';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  renderLog();
 
   // logo
   $('#logo').innerHTML = `<svg viewBox="0 0 272 40">${F.text('brand', 'SELENE', 0, 34, 30, { track: 0.18, attrs: 'fill="#e8edf5"' })}</svg>`;
