@@ -1,0 +1,529 @@
+/*
+ * Selene faces — original dial designs rendered as SVG with tagged LCD segments.
+ *
+ * Every face draws the same *logical* segment set (see SEGMENTS below) so a single
+ * watch module (module.js / watch_logic.cpp) can drive any face. Faces may add
+ * optional segments (sea reflections r0..r8, seconds ring q0..q59); faces without
+ * them simply ignore those ids.
+ *
+ * Coordinate system: 1000 x 1000, dial centre (500,500). Each segment is emitted as
+ *   <path class="s {lcd|mg}" data-s="{id}" d="..."/>
+ * Static artwork has no data-s. The web app toggles `.on`; the firmware pipeline
+ * (tools/render_faces.mjs) rasterizes background / segment-id / coverage layers.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./glyphs.js'));
+  else root.SeleneFaces = factory(root.SeleneGlyphs);
+})(typeof self !== 'undefined' ? self : this, function (GLYPHS) {
+  'use strict';
+  const f1 = (v) => Math.round(v * 10) / 10;
+  const P = (pts) => 'M' + pts.map((p) => f1(p[0]) + ' ' + f1(p[1])).join('L') + 'Z';
+  const RAD = Math.PI / 180;
+
+  // ---------------------------------------------------------------- text → paths
+  function textWidth(font, str, size, track) {
+    const F = GLYPHS[font], s = size / 1000;
+    let w = 0;
+    for (const ch of str) w += ((F.g[ch] || F.g[' '])[0]) * s + track * size;
+    return w - track * size;
+  }
+  /** Text as one <path>. capH = cap height in units; align: start|middle|end */
+  function text(font, str, x, y, capH, opt = {}) {
+    const F = GLYPHS[font];
+    const size = capH / F.capH * 1000, s = size / 1000, track = opt.track || 0;
+    const w = textWidth(font, str, size, track);
+    let cx = opt.align === 'middle' ? x - w / 2 : opt.align === 'end' ? x - w : x;
+    let d = '';
+    for (const ch of str) {
+      const g = F.g[ch] || F.g[' '];
+      if (g[1]) d += `<path transform="translate(${f1(cx)} ${f1(y)}) scale(${+s.toFixed(5)})" d="${g[1]}"/>`;
+      cx += g[0] * s + track * size;
+    }
+    const attrs = opt.attrs || '';
+    return `<g ${attrs}>${d}</g>`;
+  }
+  /** Text along a circle. upper=true: clockwise, tops outward. upper=false: counter-clockwise, tops inward. */
+  function arcText(font, str, cx, cy, r, angDeg, capH, upper, opt = {}) {
+    const F = GLYPHS[font];
+    const size = capH / F.capH * 1000, s = size / 1000, track = opt.track || 0;
+    const w = textWidth(font, str, size, track);
+    const rb = upper ? r - capH / 2 : r + capH / 2;
+    let a = angDeg * RAD + (upper ? -1 : 1) * (w / 2) / rb;
+    let d = '';
+    for (const ch of str) {
+      const g = F.g[ch] || F.g[' '];
+      const adv = g[0] * s;
+      const x = cx + rb * Math.cos(a), y = cy + rb * Math.sin(a);
+      const rot = (upper ? a / RAD + 90 : a / RAD - 90);
+      if (g[1]) d += `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) scale(${+s.toFixed(5)})" d="${g[1]}"/>`;
+      a += (upper ? 1 : -1) * (adv + track * size) / rb;
+    }
+    return `<g ${opt.attrs || ''}>${d}</g>`;
+  }
+
+  // ---------------------------------------------------------------- LCD primitives
+  /** 7-segment digit. Returns [{id, d}] for segments a..g (+ optional extra 'w'). */
+  function seg7(id, x, y, w, h, t, g, slant, extraW) {
+    const k = Math.tan(slant * RAD);
+    const sk = (p) => [x + p[0] + (h - p[1]) * k, y + p[1]];
+    const m = h / 2, ht = t / 2;
+    const segs = {
+      a: [[g, 0], [w - g, 0], [w - t - g, t], [t + g, t]],
+      b: [[w, g], [w, m - ht - g], [w - ht, m - g * 0.5], [w - t, m - ht - g], [w - t, t + g]],
+      c: [[w, m + g], [w, h - g], [w - t, h - t - g], [w - t, m + ht + g], [w - ht, m + g * 0.5]],
+      d: [[t + g, h - t], [w - t - g, h - t], [w - g, h], [g, h]],
+      e: [[0, m + g], [ht, m + g * 0.5], [t, m + ht + g], [t, h - t - g], [0, h - g]],
+      f: [[0, g], [t, t + g], [t, m - ht - g], [ht, m - g * 0.5], [0, m - ht - g]],
+      g: [[ht + g, m], [t + g, m - ht], [w - t - g, m - ht], [w - ht - g, m], [w - t - g, m + ht], [t + g, m + ht]],
+    };
+    const out = Object.entries(segs).map(([s, pts]) => ({ id: id + s, d: P(pts.map(sk)) }));
+    if (extraW) {
+      const cxw = w / 2, wt = t * 0.9;
+      out.push({ id: id + 'w', d: P([[cxw - wt / 2, m + ht + g * 2], [cxw + wt / 2, m + ht + g * 2], [cxw + wt / 2, h - t - g], [cxw - wt / 2, h - t - g]].map(sk)) });
+    }
+    return out;
+  }
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    return `M${f1(x + r)} ${f1(y)}H${f1(x + w - r)}Q${f1(x + w)} ${f1(y)} ${f1(x + w)} ${f1(y + r)}V${f1(y + h - r)}Q${f1(x + w)} ${f1(y + h)} ${f1(x + w - r)} ${f1(y + h)}H${f1(x + r)}Q${f1(x)} ${f1(y + h)} ${f1(x)} ${f1(y + h - r)}V${f1(y + r)}Q${f1(x)} ${f1(y)} ${f1(x + r)} ${f1(y)}Z`;
+  }
+  /** 3 x (5x7) dot-matrix characters. ids: x{char}{row}{col} */
+  function dotMatrix(x, y, pitch, dot, charGap) {
+    const out = [];
+    for (let c = 0; c < 3; c++) {
+      const ox = x + c * (5 * pitch + charGap);
+      for (let r = 0; r < 7; r++) for (let k = 0; k < 5; k++)
+        out.push({ id: `x${c}${r}${k}`, d: rrect(ox + k * pitch, y + r * pitch, dot, dot, dot * 0.18) });
+    }
+    return out;
+  }
+  function circleD(cx, cy, r) {
+    return `M${f1(cx - r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx + r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 1 0 ${f1(cx - r)} ${f1(cy)}Z`;
+  }
+  /** Glyph text as path data (for text-shaped segments). */
+  function textD(font, str, x, y, capH, align, track) {
+    const F = GLYPHS[font];
+    const size = capH / F.capH * 1000, s = size / 1000; track = track || 0;
+    const w = textWidth(font, str, size, track);
+    let cx = align === 'middle' ? x - w / 2 : align === 'end' ? x - w : x;
+    let d = '';
+    for (const ch of str) {
+      const g = F.g[ch] || F.g[' '];
+      if (g[1]) d += transformPath(g[1], s, cx, y);
+      cx += g[0] * s + track * size;
+    }
+    return d;
+  }
+  // transform a glyph path (absolute M/L/Q/C/Z with integer coords) by scale+translate
+  function transformPath(d, s, tx, ty) {
+    return d.replace(/([MLQCZ])([^MLQCZ]*)/g, (m, cmd, args) => {
+      if (cmd === 'Z') return 'Z';
+      const n = args.trim().split(/[ ,]+/).map(Number);
+      const o = [];
+      for (let i = 0; i < n.length; i += 2) o.push(f1(n[i] * s + tx) + ' ' + f1(n[i + 1] * s + ty));
+      return cmd + o.join(' ');
+    });
+  }
+
+  // ---------------------------------------------------------------- moon artwork
+  /** Upright phase silhouette for arc slot k (0..8). Waxing (k<4) lit on the right. */
+  function moonPhaseD(cx, cy, r, k) {
+    const lit = [0.0, 0.16, 0.5, 0.84, 1, 0.84, 0.5, 0.16, 0.0][k];
+    const right = k < 4;
+    if (k === 4) return circleD(cx, cy, r);
+    if (k === 0 || k === 8) {
+      // new moon: thin outline ring + crescent inside the ring on the lit side (no overlap → robust fill)
+      const ri = r * 0.84, tx = ri * 0.46, sw = right ? 1 : 0;
+      return ringPath(cx, cy, r, ri) +
+        `M${f1(cx)} ${f1(cy - ri)}A${f1(ri)} ${f1(ri)} 0 0 ${sw} ${f1(cx)} ${f1(cy + ri)}A${f1(tx)} ${f1(ri)} 0 0 ${1 - sw} ${f1(cx)} ${f1(cy - ri)}Z`;
+    }
+    // terminator ellipse x-radius
+    const tx = Math.abs(1 - 2 * lit) * r;
+    const gibbous = lit > 0.5;
+    const s1 = right ? 1 : 0; // limb sweep
+    // limb: half circle on lit side; terminator: half-ellipse
+    const termSweep = right ? (gibbous ? 1 : 0) : (gibbous ? 0 : 1);
+    if (Math.abs(lit - 0.5) < 1e-3) return `M${f1(cx)} ${f1(cy - r)}A${f1(r)} ${f1(r)} 0 0 ${s1} ${f1(cx)} ${f1(cy + r)}Z`;
+    return `M${f1(cx)} ${f1(cy - r)}A${f1(r)} ${f1(r)} 0 0 ${s1} ${f1(cx)} ${f1(cy + r)}A${f1(tx)} ${f1(r)} 0 0 ${termSweep} ${f1(cx)} ${f1(cy - r)}Z`;
+  }
+  function ringPath(cx, cy, ro, ri) {
+    // even-odd ring: outer CW + inner CCW
+    return `M${f1(cx - ro)} ${f1(cy)}A${f1(ro)} ${f1(ro)} 0 1 1 ${f1(cx + ro)} ${f1(cy)}A${f1(ro)} ${f1(ro)} 0 1 1 ${f1(cx - ro)} ${f1(cy)}Z` +
+      `M${f1(cx - ri)} ${f1(cy)}A${f1(ri)} ${f1(ri)} 0 1 0 ${f1(cx + ri)} ${f1(cy)}A${f1(ri)} ${f1(ri)} 0 1 0 ${f1(cx - ri)} ${f1(cy)}Z`;
+  }
+  function sunD(cx, cy, r) {
+    // half sun above horizon with 5 rays
+    let d = `M${f1(cx - r)} ${f1(cy)}A${f1(r)} ${f1(r)} 0 0 1 ${f1(cx + r)} ${f1(cy)}Z`;
+    for (let i = 0; i < 5; i++) {
+      const a = (180 + 22.5 + i * 33.75) * RAD, ca = Math.cos(a), sa = Math.sin(a);
+      const r0 = r * 1.28, r1 = r * 1.85, hw = r * 0.13;
+      const nx = -sa, ny = ca;
+      d += P([[cx + ca * r0 + nx * hw, cy + sa * r0 + ny * hw], [cx + ca * r1 + nx * hw * 0.6, cy + sa * r1 + ny * hw * 0.6],
+        [cx + ca * r1 - nx * hw * 0.6, cy + sa * r1 - ny * hw * 0.6], [cx + ca * r0 - nx * hw, cy + sa * r0 - ny * hw]]);
+    }
+    return d;
+  }
+  function bellD(x, y, s) { // alarm bell icon, box s x s at (x,y)
+    const c = x + s / 2;
+    return `M${f1(c)} ${f1(y)}C${f1(x + s * 0.82)} ${f1(y)} ${f1(x + s * 0.8)} ${f1(y + s * 0.45)} ${f1(x + s * 0.86)} ${f1(y + s * 0.62)}L${f1(x + s * 0.98)} ${f1(y + s * 0.8)}L${f1(x + s * 0.02)} ${f1(y + s * 0.8)}L${f1(x + s * 0.14)} ${f1(y + s * 0.62)}C${f1(x + s * 0.2)} ${f1(y + s * 0.45)} ${f1(x + s * 0.18)} ${f1(y)} ${f1(c)} ${f1(y)}Z` +
+      circleD(c, y + s * 0.9, s * 0.11);
+  }
+  function noteD(x, y, s) { // hourly chime icon: two beamed notes
+    const t = s * 0.12;
+    return P([[x + s * 0.32, y + s * 0.18], [x + s * 0.95, y], [x + s * 0.95, y + s * 0.72], [x + s * 0.95 - t, y + s * 0.72], [x + s * 0.95 - t, y + s * 0.2], [x + s * 0.32 + t, y + s * 0.36], [x + s * 0.32 + t, y + s * 0.88], [x + s * 0.32, y + s * 0.88]]) +
+      ellipseD(x + s * 0.2, y + s * 0.88, s * 0.2, s * 0.14) + ellipseD(x + s * 0.83, y + s * 0.72, s * 0.2, s * 0.14);
+  }
+  function ellipseD(cx, cy, rx, ry) {
+    return `M${f1(cx - rx)} ${f1(cy)}A${f1(rx)} ${f1(ry)} 0 1 0 ${f1(cx + rx)} ${f1(cy)}A${f1(rx)} ${f1(ry)} 0 1 0 ${f1(cx - rx)} ${f1(cy)}Z`;
+  }
+
+  // deterministic star field
+  function stars(seed, n, inside, avoid) {
+    let s = seed >>> 0;
+    const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const out = [];
+    let guard = 0;
+    while (out.length < n && guard++ < n * 60) {
+      const x = rnd() * 1000, y = rnd() * 1000;
+      if (!inside(x, y) || avoid(x, y)) continue;
+      if (out.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < 26 ** 2)) continue;
+      const m = rnd();
+      out.push({ x, y, r: 0.9 + m * m * 2.2, o: 0.35 + rnd() * 0.6, spark: m > 0.9 });
+    }
+    return out;
+  }
+  function sparkD(x, y, r) {
+    const a = r * 0.22;
+    return `M${f1(x)} ${f1(y - r)}Q${f1(x + a)} ${f1(y - a)} ${f1(x + r)} ${f1(y)}Q${f1(x + a)} ${f1(y + a)} ${f1(x)} ${f1(y + r)}Q${f1(x - a)} ${f1(y + a)} ${f1(x - r)} ${f1(y)}Q${f1(x - a)} ${f1(y - a)} ${f1(x)} ${f1(y - r)}Z`;
+  }
+
+  // ---------------------------------------------------------------- shared LCD block
+  /**
+   * Standard LCD content (row 1: 3-char matrix + 4 small digits; row 2: big time).
+   * L = layout numbers. Returns segment list.
+   */
+  function lcdBlock(L) {
+    const segs = [];
+    const push = (arr, cls = 'lcd') => arr.forEach((s) => segs.push({ ...s, cls }));
+    // row 1
+    push(dotMatrix(L.mx, L.my, L.mp, L.md, L.mg));
+    const dd = L.md * 0.84;
+    const dpx = L.mx + (19 * L.mp + 3 * L.mg + L.md) / 2 - dd / 2, dpy = L.my + 6 * L.mp + L.md - dd;
+    push([{ id: 'xdp', d: rrect(dpx, dpy, dd, dd, dd * 0.3) }]);
+    const sw = L.sw, sh = L.sh;
+    const t1x = L.sx + sw + L.sgap, dzx = t1x + sw + L.sgap * 0.5, t2x = dzx + L.sdz + L.sgap * 0.5;
+    const tx = [L.sx, t1x, t2x, t2x + sw + L.sgap];
+    tx.forEach((x, i) => push(seg7('t' + i, x, L.sy, sw, sh, L.st, L.g, L.slant)));
+    const k = Math.tan(L.slant * RAD);
+    push([{ id: 'tdash', d: P([[dzx + L.sdz * 0.18 + sh * 0.5 * k, L.sy + sh / 2 - L.st / 2], [dzx + L.sdz * 0.82 + sh * 0.5 * k, L.sy + sh / 2 - L.st / 2], [dzx + L.sdz * 0.82 + sh * 0.5 * k, L.sy + sh / 2 + L.st / 2], [dzx + L.sdz * 0.18 + sh * 0.5 * k, L.sy + sh / 2 + L.st / 2]]) }]);
+    const cd = L.st * 0.9;
+    push([{ id: 'tcol', d: rrect(dzx + L.sdz / 2 - cd / 2 + sh * 0.7 * k, L.sy + sh * 0.3 - cd / 2, cd, cd, cd * 0.3) + rrect(dzx + L.sdz / 2 - cd / 2 + sh * 0.3 * k, L.sy + sh * 0.7 - cd / 2, cd, cd, cd * 0.3) }]);
+    // labels / icons (row 1.5)
+    push([{ id: 'lage', d: textD('label', 'MOON AGE', L.mx, L.ly, L.lcap, 'start', 0.06) }]);
+    push([{ id: 'lrise', d: textD('label', 'SUNRISE', tx[0], L.ly, L.lcap, 'start', 0.06) }]);
+    push([{ id: 'alm', d: bellD(L.ix, L.ly - L.isz * 0.92, L.isz) }]);
+    push([{ id: 'chm', d: noteD(L.ix + L.isz * 1.5, L.ly - L.isz * 0.92, L.isz) }]);
+    // row 2: big time
+    const bw = L.bw, bh = L.bh;
+    const b1x = L.bx + bw + L.bgap, czx = b1x + bw + L.bgap * 0.5, b2x = czx + L.bcz + L.bgap * 0.5;
+    const bx = [L.bx, b1x, b2x, b2x + bw + L.bgap];
+    bx.forEach((x, i) => push(seg7('b' + i, x, L.by, bw, bh, L.bt, L.g * 1.2, L.slant)));
+    const sx0 = bx[3] + bw + L.bsgap, ssw = L.ssw, ssh = L.ssh;
+    push(seg7('b4', sx0, L.by + bh - ssh, ssw, ssh, L.sst, L.g, L.slant));
+    push(seg7('b5', sx0 + ssw + L.sgap, L.by + bh - ssh, ssw, ssh, L.sst, L.g, L.slant, true));
+    const cdb = L.bt * 0.95;
+    push([{ id: 'bcol', d: rrect(czx + L.bcz / 2 - cdb / 2 + bh * 0.68 * k, L.by + bh * 0.3 - cdb / 2, cdb, cdb, cdb * 0.25) + rrect(czx + L.bcz / 2 - cdb / 2 + bh * 0.3 * k, L.by + bh * 0.7 - cdb / 2, cdb, cdb, cdb * 0.25) }]);
+    // indicators column
+    push([{ id: 'pm', d: textD('labelB', 'PM', L.ix0, L.by + L.icap * 1.1, L.icap, 'start', 0.04) }]);
+    push([{ id: 'h24', d: textD('labelB', '24', L.ix0, L.by + L.icap * 2.65, L.icap, 'start', 0.04) }]);
+    push([{ id: 'lmoon', d: textD('label', 'MOON', L.ix0, L.by + bh - L.icap * 1.65, L.icap * 0.82, 'start', 0.03) }]);
+    push([{ id: 'lset', d: textD('label', 'SUNSET', L.ix0, L.by + bh, L.icap * 0.82, 'start', 0.0) }]);
+    return segs;
+  }
+
+  // ---------------------------------------------------------------- moon graph block
+  function moonGraph(G) {
+    const segs = [];
+    for (let k = 0; k < 9; k++) {
+      const a = (G.a0 - k * G.astep) * RAD;
+      const cx = G.cx + G.rx * Math.cos(a), cy = G.cy - G.ry * Math.sin(a);
+      segs.push({ id: 'p' + k, d: moonPhaseD(cx, cy, G.mr, k), cls: 'mg', cx, cy });
+    }
+    for (let k = 0; k < 13; k++) {
+      const a = (180 - k * 15) * RAD, ca = Math.cos(a), sa = Math.sin(a);
+      const r0 = G.hr0, r1 = G.hr1, hw = G.hw;
+      const hcy = G.hcy || G.cy;
+      const tip = [G.cx + G.hrx(r1) * ca, hcy - G.hry(r1) * sa];
+      const nx = -sa, ny = -ca; // perpendicular in screen space
+      const b1 = [G.cx + G.hrx(r0) * ca + nx * hw, hcy - G.hry(r0) * sa + ny * hw];
+      const b2 = [G.cx + G.hrx(r0) * ca - nx * hw, hcy - G.hry(r0) * sa - ny * hw];
+      segs.push({ id: 'h' + k, d: G.hdot ? circleD((tip[0] + (b1[0] + b2[0]) / 2) / 2, (tip[1] + (b1[1] + b2[1]) / 2) / 2, G.hdot) : P([tip, b1, b2]), cls: 'mg' });
+    }
+    segs.push({ id: 'sune', d: sunD(G.sex, G.sy, G.sr), cls: 'mg' });
+    segs.push({ id: 'sunw', d: sunD(G.swx, G.sy, G.sr), cls: 'mg' });
+    return segs;
+  }
+
+  const segPaths = (segs) => segs.map((s) => `<path class="s ${s.cls}" data-s="${s.id}" d="${s.d}"/>`).join('');
+
+  // ================================================================ FACE: ARC (wristwatch dial)
+  function buildArc(opt = {}) {
+    const C = { // palette
+      dial0: '#1b2b45', dial1: '#0a1322', ink: '#e7ecf3', silver: '#a9b6c8', gold: '#d9b86c',
+      lcd0: '#cfd4c3', lcd1: '#c1c6b4',
+    };
+    const W = { cx: 500, cy: 474, R: 290 };
+    const G = { cx: 500, cy: W.cy, rx: 196, ry: 196, mr: 31, a0: 162, astep: 18,
+      hr0: 238, hr1: 254, hw: 7.5, hrx: (r) => r, hry: (r) => r,
+      sex: 240, swx: 760, sy: W.cy, sr: 12.5 };
+    const mg = moonGraph(G);
+    // sea reflections under each moon slot
+    for (let k = 0; k < 9; k++) {
+      const x = mg[k].cx;
+      mg.push({ id: 'r' + k, cls: 'mg', d: rrect(x - 13, W.cy + 8, 26, 3.2, 1.6) + rrect(x - 8.5, W.cy + 15, 17, 3, 1.5) + rrect(x - 4.5, W.cy + 22, 9, 2.6, 1.3) });
+    }
+    const L = { mx: 186, my: 548, mp: 9.6, md: 8.2, mg: 12,
+      sx: 566, sy: 548, sw: 42, sh: 66, st: 8.6, sgap: 11, sdz: 26, g: 1.6, slant: 4,
+      ly: 640, lcap: 10.5, ix: 734, isz: 19,
+      bx: 262, by: 656, bw: 70, bh: 102, bt: 13.5, bgap: 15, bcz: 26, bsgap: 20, ssw: 48, ssh: 72, sst: 10,
+      ix0: 180, icap: 12.5 };
+    const lcd = lcdBlock(L);
+    const inDome = (x, y) => (x - W.cx) ** 2 + (y - W.cy) ** 2 < 282 ** 2 && y < W.cy - 16;
+    const avoid = (x, y) => {
+      const r = Math.hypot(x - W.cx, y - W.cy);
+      if (r > 228 && r < 284) return true;
+      return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 44 ** 2);
+    };
+    const st = stars(7, 46, inDome, avoid);
+    const starSvg = st.map((p) => p.spark ? `<path d="${sparkD(p.x, p.y, p.r * 3.1)}" opacity="${p.o.toFixed(2)}"/>` : `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r)}" opacity="${p.o.toFixed(2)}"/>`).join('');
+    // dial sunburst
+    let burst = '';
+    for (let i = 0; i < 180; i++) {
+      const a = i * 2 * RAD;
+      burst += `M${f1(500 + 70 * Math.cos(a))} ${f1(500 + 70 * Math.sin(a))}L${f1(500 + 492 * Math.cos(a))} ${f1(500 + 492 * Math.sin(a))}`;
+    }
+    let ticks = '', ticks5 = '';
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6 - 90) * RAD, c = Math.cos(a), s = Math.sin(a);
+      if (i % 5 === 0) ticks5 += `M${f1(500 + 455 * c)} ${f1(500 + 455 * s)}L${f1(500 + 474 * c)} ${f1(500 + 474 * s)}`;
+      else ticks += `M${f1(500 + 464 * c)} ${f1(500 + 464 * s)}L${f1(500 + 474 * c)} ${f1(500 + 474 * s)}`;
+    }
+    // hour-angle printed scale
+    let haScale = '';
+    for (let k = 0; k <= 24; k++) {
+      const a = (180 - k * 7.5) * RAD, c = Math.cos(a), s = Math.sin(a);
+      const r0 = k % 2 === 0 ? 262 : 266;
+      haScale += `M${f1(W.cx + r0 * c)} ${f1(W.cy - r0 * s)}L${f1(W.cx + 274 * c)} ${f1(W.cy - 274 * s)}`;
+    }
+    const domeD = `M${W.cx - W.R} ${W.cy}A${W.R} ${W.R} 0 0 1 ${W.cx + W.R} ${W.cy}V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z`;
+    const waves = [0, 1].map((j) => {
+      let d = `M${W.cx - W.R + 6} ${W.cy + 12 + j * 10}`;
+      for (let x = W.cx - W.R + 6; x < W.cx + W.R - 6; x += 24) d += `q6 -2.2 12 0t12 0`;
+      return d;
+    }).join('');
+    const lcdBox = { x: 150, y: 522, w: 700, h: 254, r: 34 };
+    const btn = (label, ang, upper) => arcText('label', label, 500, 500, 436, ang, 14, upper, { track: 0.16, attrs: `fill="${C.silver}"` }) +
+      `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${C.gold}"/>`;
+    const svg = `
+<defs>
+  <radialGradient id="arcDial" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
+  <linearGradient id="arcSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03060d"/><stop offset=".72" stop-color="#07101f"/><stop offset="1" stop-color="#10213b"/></linearGradient>
+  <linearGradient id="arcLcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.lcd0}"/><stop offset="1" stop-color="${C.lcd1}"/></linearGradient>
+  <linearGradient id="arcGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="500" cy="500" r="500" fill="url(#arcDial)"/>
+<path d="${burst}" stroke="#fff" stroke-opacity=".028" stroke-width="1.4"/>
+<path d="${ticks}" stroke="${C.silver}" stroke-opacity=".55" stroke-width="1.8"/>
+<path d="${ticks5}" stroke="${C.ink}" stroke-opacity=".85" stroke-width="3.6"/>
+<circle cx="500" cy="500" r="480" fill="none" stroke="${C.silver}" stroke-opacity=".35" stroke-width="1.5"/>
+${text('brand', 'SELENE', 500, 128, 29, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` })}
+${text('label', 'LUNAR ARC', 500, 160, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
+<path d="${domeD}" fill="url(#arcSky)"/>
+<g fill="#c7d3e3">${starSvg}</g>
+<path d="${haScale}" stroke="${C.silver}" stroke-opacity=".7" stroke-width="1.6"/>
+<path d="M${W.cx - 274} ${W.cy}A274 274 0 0 1 ${W.cx + 274} ${W.cy}" fill="none" stroke="${C.silver}" stroke-opacity=".28" stroke-width="1.2"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z" fill="#07101e" opacity=".9"/>
+<path d="${waves}" fill="none" stroke="#9fb3cf" stroke-opacity=".22" stroke-width="1.4"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/>
+${text('label', 'E', W.cx - W.R + 12, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
+${text('label', 'W', W.cx + W.R - 12, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
+<path d="${domeD}" fill="none" stroke="#b9c6d8" stroke-width="3.2"/>
+<path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2" transform="translate(0 1.5)"/>
+<g class="mgl">${segPaths(mg)}</g>
+<path d="${rrect(lcdBox.x - 9, lcdBox.y - 9, lcdBox.w + 18, lcdBox.h + 18, lcdBox.r + 8)}" fill="#05080e"/>
+<path d="${rrect(lcdBox.x - 9, lcdBox.y - 9, lcdBox.w + 18, lcdBox.h + 18, lcdBox.r + 8)}" fill="none" stroke="#8d9bb0" stroke-opacity=".45" stroke-width="1.6"/>
+<path class="lcdbg" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="url(#arcLcd)"/>
+<path class="el" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="#6fe3cf" opacity="0"/>
+<g class="lcdl">${segPaths(lcd)}</g>
+<path class="glass" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="url(#arcGlass)" pointer-events="none"/>
+${text('label', 'MOON · SUN · ALARM · CHRONO', 500, 826, 14, { align: 'middle', track: 0.2, attrs: `fill="${C.silver}"` })}
+${text('cond', 'QUARTZ', 500, 862, 10.5, { align: 'middle', track: 0.5, attrs: `fill="${C.gold}" opacity=".9"` })}
+${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn('FWD', 32, false)}
+`;
+    return { id: 'arc', name: 'Arc', svg, segs: mg.concat(lcd), palette: {
+      lcdOn: '#161b18', lcdGhost: 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
+      shadow: 'rgba(28,34,30,.32)', glow: 'rgba(255,214,120,.55)', negative: false,
+      el: '#7fe7d2' }, lcdBox, kind: 'watch' };
+  }
+
+  // ================================================================ FACE: DESK (alarm clock dial)
+  function buildDesk(opt = {}) {
+    const C = { dial0: '#f6f1e6', dial1: '#e3dac6', ink: '#1f2329', brass: '#9c7a43', silver: '#6c737d',
+      lcd0: '#d3d8c7', lcd1: '#c5cab8' };
+    const Wn = { cx: 500, cy: 452, rx: 268, ry: 214, bottom: 470 };
+    const G = { cx: 500, cy: 440, rx: 192, ry: 150, mr: 26, a0: 162, astep: 18,
+      hr0: 0, hr1: 0, hw: 0, hdot: 5.4, hrx: () => 236, hry: () => 186, hcy: 452,
+      sex: 270, swx: 730, sy: 452, sr: 11 };
+    // hour-angle pips: use elliptical ring
+    G.hr0 = 1; G.hr1 = 1;
+    const mg = moonGraph(G);
+    const L = { mx: 205, my: 538, mp: 9.2, md: 7.8, mg: 12,
+      sx: 556, sy: 538, sw: 40, sh: 63, st: 8.2, sgap: 10, sdz: 24, g: 1.5, slant: 3,
+      ly: 624, lcap: 10, ix: 726, isz: 18,
+      bx: 262, by: 638, bw: 72, bh: 106, bt: 14, bgap: 14, bcz: 25, bsgap: 18, ssw: 46, ssh: 70, sst: 9.6,
+      ix0: 200, icap: 12 };
+    const lcd = lcdBlock(L);
+    // seconds ring q0..q59 on an annular LCD strip
+    const ring = [];
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6 - 90) * RAD, c = Math.cos(a), s = Math.sin(a), nx = -s, ny = c;
+      const r0 = 423, r1 = 441, hw = i % 5 === 0 ? 3.6 : 2.6;
+      ring.push({ id: 'q' + i, cls: 'lcd', d: P([[500 + r0 * c + nx * hw, 500 + r0 * s + ny * hw], [500 + r1 * c + nx * hw, 500 + r1 * s + ny * hw], [500 + r1 * c - nx * hw, 500 + r1 * s - ny * hw], [500 + r0 * c - nx * hw, 500 + r0 * s - ny * hw]]) });
+    }
+    let ticks = '', ticks5 = '';
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6 - 90) * RAD, c = Math.cos(a), s = Math.sin(a);
+      if (i % 5 === 0) ticks5 += `M${f1(500 + 452 * c)} ${f1(500 + 452 * s)}L${f1(500 + 478 * c)} ${f1(500 + 478 * s)}`;
+      else ticks += `M${f1(500 + 462 * c)} ${f1(500 + 462 * s)}L${f1(500 + 478 * c)} ${f1(500 + 478 * s)}`;
+    }
+    const winD = `M${Wn.cx - Wn.rx} ${Wn.bottom}V${Wn.cy}A${Wn.rx} ${Wn.ry} 0 0 1 ${Wn.cx + Wn.rx} ${Wn.cy}V${Wn.bottom}Z`;
+    const inWin = (x, y) => ((x - Wn.cx) / (Wn.rx - 10)) ** 2 + ((y - Wn.cy) / (Wn.ry - 10)) ** 2 < 1 && y < Wn.cy - 20;
+    const avoid = (x, y) => {
+      const e = Math.hypot((x - Wn.cx) / 236, (y - Wn.cy) / 186);
+      if (e > 0.92 && e < 1.08) return true;
+      return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 38 ** 2);
+    };
+    const st = stars(42, 40, inWin, avoid);
+    const starSvg = st.map((p) => p.spark ? `<path d="${sparkD(p.x, p.y, p.r * 3)}" opacity="${p.o.toFixed(2)}"/>` : `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r)}" opacity="${p.o.toFixed(2)}"/>`).join('');
+    // hills + observatory silhouette
+    const hills = `M${Wn.cx - Wn.rx} ${Wn.bottom}V442C300 428 352 424 400 434S470 450 520 440S612 418 660 422S740 436 ${Wn.cx + Wn.rx} 438V${Wn.bottom}Z`;
+    const hills2 = `M${Wn.cx - Wn.rx} ${Wn.bottom}V456C320 448 380 452 440 458S560 452 620 454S720 458 ${Wn.cx + Wn.rx} 452V${Wn.bottom}Z`;
+    const obs = `M640 423h28v-10a14 14 0 0 0 -28 0z`;
+    const slit = `M652 399h4v14h-4z`;
+    let haTicks = '';
+    for (let k = 0; k < 13; k++) {
+      const a = (180 - k * 15) * RAD;
+      const x = Wn.cx + 236 * Math.cos(a), y = Wn.cy - 186 * Math.sin(a);
+      haTicks += circleD(x, y, 1.8);
+    }
+    const lcdBox = { x: 178, y: 512, w: 644, h: 250, r: 24 };
+    const svg = `
+<defs>
+  <radialGradient id="deskDial" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
+  <linearGradient id="deskSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#091226"/><stop offset=".8" stop-color="#18294d"/><stop offset="1" stop-color="#2a3d63"/></linearGradient>
+  <linearGradient id="deskLcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.lcd0}"/><stop offset="1" stop-color="${C.lcd1}"/></linearGradient>
+  <linearGradient id="deskGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+</defs>
+<circle cx="500" cy="500" r="500" fill="url(#deskDial)"/>
+<circle cx="500" cy="500" r="488" fill="none" stroke="${C.ink}" stroke-opacity=".75" stroke-width="2.2"/>
+<path d="${ticks}" stroke="${C.ink}" stroke-opacity=".7" stroke-width="2"/>
+<path d="${ticks5}" stroke="${C.ink}" stroke-width="4.6"/>
+<path d="${ringPath(500, 500, 446, 418)}" fill="#cfd3c3" fill-rule="evenodd"/>
+<path d="${ringPath(500, 500, 446, 418)}" fill="none" stroke="#8c8f86" stroke-width="1.4"/>
+<path class="glass" d="${ringPath(500, 500, 446, 418)}" fill="url(#deskGlass)" fill-rule="evenodd"/>
+${text('brand', 'SELENE', 500, 168, 30, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` })}
+${text('label', 'LUNAR ALARM', 500, 198, 11, { align: 'middle', track: 0.46, attrs: `fill="${C.brass}"` })}
+<path d="${winD}" fill="url(#deskSky)"/>
+<g fill="#dfe7f3">${starSvg}</g>
+<path d="${haTicks}" fill="#9fb0cc" opacity=".8"/>
+<path d="${hills}" fill="#101b24"/>
+<path d="${hills2}" fill="#0a1218"/>
+<path d="${obs}" fill="#1b2732"/><path d="${slit}" fill="#060a0e"/>
+<path d="${winD}" fill="none" stroke="${C.brass}" stroke-width="3.4"/>
+${text('label', 'E', Wn.cx - Wn.rx, Wn.bottom + 20, 10, { attrs: `fill="${C.brass}"` })}
+${text('label', 'W', Wn.cx + Wn.rx, Wn.bottom + 20, 10, { align: 'end', attrs: `fill="${C.brass}"` })}
+<g class="mgl">${segPaths(mg)}</g>
+<path d="${rrect(lcdBox.x - 8, lcdBox.y - 8, lcdBox.w + 16, lcdBox.h + 16, lcdBox.r + 7)}" fill="#2a2a28"/>
+<path d="${rrect(lcdBox.x - 8, lcdBox.y - 8, lcdBox.w + 16, lcdBox.h + 16, lcdBox.r + 7)}" fill="none" stroke="${C.brass}" stroke-width="2.4"/>
+<path class="lcdbg" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="url(#deskLcd)"/>
+<path class="el" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="#74e6cf" opacity="0"/>
+<g class="lcdl">${segPaths(lcd)}${segPaths(ring)}</g>
+<path class="glass" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="url(#deskGlass)" pointer-events="none"/>
+${text('label', 'MOON · SUN · ALARM · CHRONO', 500, 812, 13, { align: 'middle', track: 0.22, attrs: `fill="${C.silver}"` })}
+${text('cond', 'QUARTZ', 500, 846, 10.5, { align: 'middle', track: 0.55, attrs: `fill="${C.brass}"` })}
+`;
+    return { id: 'desk', name: 'Desk', svg, segs: mg.concat(lcd, ring), palette: {
+      lcdOn: '#1a1e1b', lcdGhost: 'rgba(26,30,27,.038)', mgOn: '#f4cf6c', mgGhost: 'rgba(244,207,108,.016)',
+      shadow: 'rgba(30,34,30,.30)', glow: 'rgba(255,220,130,.5)', negative: false, el: '#8ef0d5' }, lcdBox, kind: 'clock' };
+  }
+
+  // ================================================================ FACE: NOIR (night, negative LCD)
+  function buildNoir(opt = {}) {
+    const W = { cx: 500, cy: 468, R: 300 };
+    const G = { cx: 500, cy: W.cy, rx: 206, ry: 206, mr: 33, a0: 162, astep: 18,
+      hr0: 248, hr1: 266, hw: 8, hrx: (r) => r, hry: (r) => r, sex: 236, swx: 764, sy: W.cy, sr: 13 };
+    const mg = moonGraph(G);
+    const L = { mx: 182, my: 546, mp: 9.8, md: 8.4, mg: 12,
+      sx: 562, sy: 546, sw: 43, sh: 67, st: 8.8, sgap: 11, sdz: 26, g: 1.7, slant: 0,
+      ly: 640, lcap: 10.5, ix: 734, isz: 19,
+      bx: 254, by: 656, bw: 74, bh: 110, bt: 14.5, bgap: 15, bcz: 26, bsgap: 20, ssw: 50, ssh: 76, sst: 10.5,
+      ix0: 176, icap: 12.5 };
+    const lcd = lcdBlock(L);
+    const inDome = (x, y) => (x - W.cx) ** 2 + (y - W.cy) ** 2 < (W.R - 10) ** 2 && y < W.cy - 12;
+    const avoid = (x, y) => {
+      const r = Math.hypot(x - W.cx, y - W.cy);
+      if (r > 236 && r < 274) return true;
+      return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 46 ** 2);
+    };
+    const st = stars(99, 34, inDome, avoid);
+    const starSvg = st.map((p) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r * 0.85)}" opacity="${(p.o * 0.6).toFixed(2)}"/>`).join('');
+    const domeD = `M${W.cx - W.R} ${W.cy}A${W.R} ${W.R} 0 0 1 ${W.cx + W.R} ${W.cy}Z`;
+    let haScale = '';
+    for (let k = 0; k <= 12; k++) {
+      const a = (180 - k * 15) * RAD, c = Math.cos(a), s = Math.sin(a);
+      haScale += `M${f1(W.cx + 274 * c)} ${f1(W.cy - 274 * s)}L${f1(W.cx + 284 * c)} ${f1(W.cy - 284 * s)}`;
+    }
+    const lcdBox = { x: 146, y: 522, w: 708, h: 262, r: 30 };
+    const svg = `
+<defs>
+  <radialGradient id="noirDial" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#101216"/><stop offset="1" stop-color="#050607"/></radialGradient>
+  <linearGradient id="noirLcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07080a"/><stop offset="1" stop-color="#030304"/></linearGradient>
+</defs>
+<circle cx="500" cy="500" r="500" fill="url(#noirDial)"/>
+<circle cx="500" cy="500" r="484" fill="none" stroke="#262b33" stroke-width="2"/>
+${text('brand', 'SELENE', 500, 142, 24, { align: 'middle', track: 0.24, attrs: 'fill="#4d5562"' })}
+<path d="${domeD}" fill="#020305"/>
+<g fill="#6d7b8f">${starSvg}</g>
+<path d="${haScale}" stroke="#3a4250" stroke-width="2"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#39414d" stroke-width="2"/>
+<path d="${domeD}" fill="none" stroke="#232831" stroke-width="3"/>
+<g class="mgl">${segPaths(mg)}</g>
+<path d="${rrect(lcdBox.x - 6, lcdBox.y - 6, lcdBox.w + 12, lcdBox.h + 12, lcdBox.r + 5)}" fill="#101215" stroke="#262b33" stroke-width="2"/>
+<path class="lcdbg" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="url(#noirLcd)"/>
+<path class="el" d="${rrect(lcdBox.x, lcdBox.y, lcdBox.w, lcdBox.h, lcdBox.r)}" fill="#ff9a3c" opacity="0"/>
+<g class="lcdl">${segPaths(lcd)}</g>
+${text('label', 'MOON · SUN · ALARM', 500, 846, 12, { align: 'middle', track: 0.3, attrs: 'fill="#3b424d"' })}
+`;
+    return { id: 'noir', name: 'Noir', svg, segs: mg.concat(lcd), palette: {
+      lcdOn: '#ffb04a', lcdGhost: 'rgba(255,176,74,.028)', mgOn: '#ffbf5c', mgGhost: 'rgba(255,191,92,.012)',
+      shadow: 'rgba(0,0,0,0)', glow: 'rgba(255,160,60,.55)', negative: true, el: '#ffb04a' }, lcdBox, kind: 'clock' };
+  }
+
+  const BUILDERS = { arc: buildArc, desk: buildDesk, noir: buildNoir };
+  const cache = {};
+  function build(id) { return cache[id] || (cache[id] = BUILDERS[id]()); }
+
+  /** Full standalone SVG document for a face (used by the firmware pipeline & previews). */
+  function standalone(id, extraCss = '') {
+    const F = build(id), p = F.palette;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+<style>
+.s{fill:${'var(--ghost)'}}
+.lcd{--ghost:${p.lcdGhost}} .mg{--ghost:${p.mgGhost}}
+.lcd.on{fill:${p.lcdOn}} .mg.on{fill:${p.mgOn}}
+${extraCss}
+</style>${F.svg}</svg>`;
+  }
+
+  return { build, standalone, ids: Object.keys(BUILDERS), text, arcText, seg7, rrect };
+});

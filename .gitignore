@@ -1,0 +1,13 @@
+node_modules
+.esphome/
+firmware/.esphome/
+__pycache__/
+*.pyc
+build/
+secrets.yaml
+firmware/tests/astro_host
+firmware/tests/watch_host
+firmware/tests/render_host
+dist/sw.js
+dist/manifest.webmanifest
+dist/icon-*.png

@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="system-ui,Segoe UI,Roboto,sans-serif">
+<rect width="1000" height="640" fill="#0d1320"/>
+<text x="40" y="46" fill="#e8edf5" font-size="22" font-weight="600">Selene clock — button wiring</text>
+<text x="40" y="70" fill="#8b98ad" font-size="13">40-pin header of the Waveshare ESP32-P4-WIFI6-Touch-LCD-4C, labels as printed on the board. Each button: GPIO ↔ GND (internal pull-ups).</text>
+<rect x="69" y="270" width="812" height="82" rx="8" fill="#141c2c" stroke="#2a3850"/>
+<rect x="78" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="95" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="118" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="135" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">47</text>
+<rect x="158" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="175" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">52</text>
+<rect x="198" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="215" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">48</text>
+<rect x="238" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="255" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">32</text>
+<rect x="278" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="295" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">51</text>
+<rect x="318" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="335" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">24</text>
+<rect x="358" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="375" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="398" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="415" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">50</text>
+<rect x="438" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="455" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">2</text>
+<rect x="478" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="495" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">3</text>
+<rect x="518" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="535" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">3V3</text>
+<rect x="558" y="280" width="34" height="24" rx="4" fill="#ff9f7a" stroke="#fff" stroke-width="1"/>
+<text x="575" y="296.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">28</text>
+<rect x="598" y="280" width="34" height="24" rx="4" fill="#e3c27a" stroke="#fff" stroke-width="1"/>
+<text x="615" y="296.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">20</text>
+<rect x="638" y="280" width="34" height="24" rx="4" fill="#7fd3c4" stroke="#fff" stroke-width="1"/>
+<text x="655" y="296.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">21</text>
+<rect x="678" y="280" width="34" height="24" rx="4" fill="#9aa3ad" stroke="#fff" stroke-width="1"/>
+<text x="695" y="296.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">GND</text>
+<rect x="718" y="280" width="34" height="24" rx="4" fill="#c9a0ff" stroke="#fff" stroke-width="1"/>
+<text x="735" y="296.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">29</text>
+<rect x="758" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="775" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">SCL</text>
+<rect x="798" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="815" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">SDA</text>
+<rect x="838" y="280" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="855" y="296.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">3V3</text>
+<rect x="78" y="318" width="34" height="24" rx="4" fill="#a8d86e" stroke="#fff" stroke-width="1"/>
+<text x="95" y="334.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">30</text>
+<rect x="118" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="135" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">46</text>
+<rect x="158" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="175" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">31</text>
+<rect x="198" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="215" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="238" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="255" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">34</text>
+<rect x="278" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="295" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="318" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="335" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">25</text>
+<rect x="358" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="375" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">49</text>
+<rect x="398" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="415" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">36</text>
+<rect x="438" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="455" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">35</text>
+<rect x="478" y="318" width="34" height="24" rx="4" fill="#9aa3ad" stroke="#fff" stroke-width="1"/>
+<text x="495" y="334.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">GND</text>
+<rect x="518" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="535" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">4</text>
+<rect x="558" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="575" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">5</text>
+<rect x="598" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="615" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="638" y="318" width="34" height="24" rx="4" fill="#8fb4ff" stroke="#fff" stroke-width="1"/>
+<text x="655" y="334.5" fill="#0d1320" font-size="11" font-weight="700" text-anchor="middle">22</text>
+<rect x="678" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="695" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">RXD</text>
+<rect x="718" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="735" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">TXD</text>
+<rect x="758" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="775" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">GND</text>
+<rect x="798" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="815" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">5V</text>
+<rect x="838" y="318" width="34" height="24" rx="4" fill="#232c3d" stroke="#3a465c" stroke-width="1"/>
+<text x="855" y="334.5" fill="#aeb8c8" font-size="11" font-weight="500" text-anchor="middle">5V</text>
+<path d="M575 280V250H360V196" fill="none" stroke="#ff9f7a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="360" cy="196" r="3.5" fill="#ff9f7a"/>
+<g transform="translate(360 170)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="390.0" y="172.0" fill="#ff9f7a" font-size="15" font-weight="700">FWD</text><text x="390.0" y="189.0" fill="#8b98ad" font-size="12">GPIO28</text>
+<path d="M360 144V110" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M615 280V230H490V196" fill="none" stroke="#e3c27a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="490" cy="196" r="3.5" fill="#e3c27a"/>
+<g transform="translate(490 170)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="520.0" y="172.0" fill="#e3c27a" font-size="15" font-weight="700">SET</text><text x="520.0" y="189.0" fill="#8b98ad" font-size="12">GPIO20</text>
+<path d="M490 144V110" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M655 280V212H620V196" fill="none" stroke="#7fd3c4" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="620" cy="196" r="3.5" fill="#7fd3c4"/>
+<g transform="translate(620 170)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="650.0" y="172.0" fill="#7fd3c4" font-size="15" font-weight="700">MODE</text><text x="650.0" y="189.0" fill="#8b98ad" font-size="12">GPIO21</text>
+<path d="M620 144V110" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M735 280V250H800V196" fill="none" stroke="#c9a0ff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="800" cy="196" r="3.5" fill="#c9a0ff"/>
+<g transform="translate(800 170)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="830" y="172.0" fill="#c9a0ff" font-size="15" font-weight="700">LIGHT / SNOOZE</text><text x="830" y="189.0" fill="#8b98ad" font-size="12">GPIO29</text>
+<path d="M800 144V110" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M360 110H800M695 110V280" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="808" y="114" fill="#9aa3ad" font-size="12">GND</text>
+<path d="M95 342V372H200V422" fill="none" stroke="#a8d86e" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="200" cy="422" r="3.5" fill="#a8d86e"/>
+<g transform="translate(200 448)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="230.0" y="450.0" fill="#a8d86e" font-size="15" font-weight="700">12/24</text><text x="230.0" y="467.0" fill="#8b98ad" font-size="12">GPIO30</text>
+<path d="M200 474V548" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M655 342V392H560V422" fill="none" stroke="#8fb4ff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="560" cy="422" r="3.5" fill="#8fb4ff"/>
+<g transform="translate(560 448)"><path d="M0 -26V-8M0 8V26" stroke="#cfd6e2" stroke-width="2"/><path d="M-20 2H20" stroke="#cfd6e2" stroke-width="2.4"/><path d="M-9 2V-9H9V2" fill="none" stroke="#cfd6e2" stroke-width="2"/></g><text x="590.0" y="450.0" fill="#8fb4ff" font-size="15" font-weight="700">REV</text><text x="590.0" y="467.0" fill="#8b98ad" font-size="12">GPIO22</text>
+<path d="M560 474V548" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M200 548H495V342M495 548H560" fill="none" stroke="#9aa3ad" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="574" y="552" fill="#9aa3ad" font-size="12">GND</text>
+<text x="40" y="600" fill="#8b98ad" font-size="12.5">Rear buttons: 12 mm panel-mount momentary (SET · MODE · REV · FWD) · top: 16 mm momentary (LIGHT/SNOOZE) · 12/24: 6×6 mm tactile behind the pin hole.</text>
+<text x="40" y="620" fill="#8b98ad" font-size="12.5">Speaker → “SPK” PH2.0 header (kit speaker or any 8 Ω 1–2 W) · Power → USB-C, 5 V 2 A. Touch: tap = light/snooze, swipe = change face.</text>
+</svg>

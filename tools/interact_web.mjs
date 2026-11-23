@@ -1,0 +1,33 @@
+// Interaction test: drives the module through every mode and captures the device.
+import { chromium } from 'playwright';
+import path from 'path'; import fs from 'fs';
+const out = process.argv[2] || '/tmp/inter'; fs.mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
+const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+await ctx.addInitScript(() => localStorage.clear());
+const p = await ctx.newPage(); const errs = [];
+p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+await p.goto('file://' + path.resolve('dist/index.html')); await p.waitForTimeout(500);
+const dev = async (name) => { const el = await p.$('#device'); await el.screenshot({ path: `${out}/${name}.png` }); };
+const tap = async (k, hold = 60) => { await p.keyboard.down(k); await p.waitForTimeout(hold); await p.keyboard.up(k); await p.waitForTimeout(120); };
+await tap('b'); await p.waitForTimeout(100); await dev('01_set_seconds');
+await tap('c'); await tap('c'); await tap('c'); await dev('02_set_year');
+await tap('b'); await dev('03_loc_gmt');
+await tap('c'); await tap('a'); await dev('04_loc_lon');
+await tap('c'); await tap('d'); await dev('05_loc_lat');
+await tap('b'); await dev('06_time_after');
+await tap('c'); await tap('c'); await tap('c'); await dev('07_alarm');
+await tap('d'); await tap('d'); await tap('d'); await dev('08_alarm_both');
+await tap('c'); await tap('a'); await p.waitForTimeout(1530); await dev('09_stopwatch_run');
+await tap('d'); await dev('10_split');
+await tap('d'); await tap('a'); await tap('d'); await tap('c');
+await p.click('#demo'); await p.waitForTimeout(400); await dev('11_demo_a'); await p.waitForTimeout(700); await dev('12_demo_b');
+await tap('a');
+await p.click('#lcdTest'); await p.waitForTimeout(200); await dev('13_lcdtest');
+await p.waitForTimeout(2600);
+await p.keyboard.press('2'); await p.waitForTimeout(300); await tap('l'); await p.waitForTimeout(400); await dev('14_desk_light');
+await p.keyboard.press('3'); await p.waitForTimeout(300); await tap('l'); await p.waitForTimeout(400); await dev('15_noir_light');
+// alarm: set alarm to the next minute via module, jump clock
+await p.evaluate(() => { });
+console.log(errs.length ? errs.join('\n') : 'no errors');
+await browser.close();

@@ -1,0 +1,13 @@
+{
+  "name": "Selene — lunar LCD watch",
+  "short_name": "Selene",
+  "description": "Moon-data LCD watch simulator: moon phase arc, moon times, sunrise/sunset, alarm and stopwatch.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070a10",
+  "theme_color": "#0b0f17",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
