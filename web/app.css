@@ -19,8 +19,17 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 /* ------------------------------------------------ stage */
 .stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px 28px;min-height:100vh;gap:18px}
 .device-wrap{perspective:1400px;width:min(100%,560px)}
-.device{transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
+.device{position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
 .device svg{display:block;width:100%;height:auto;overflow:visible}
+/* stacked layers: body in flow, the rest laid exactly over it at their own depth */
+.device .L{position:absolute;left:0;top:0;height:100%;pointer-events:none;will-change:transform;backface-visibility:hidden}
+.device .L.body{position:relative;height:auto;pointer-events:auto}
+.device .dial{transform:translateZ(-22px)}
+.device .segs{transform:translateZ(-21px)}
+.device .glass{transform:translateZ(6px)}
+.device .spec{transform:translateZ(40px) translate(calc(var(--tx,0)*-2.4%),calc(var(--ty,0)*-2.4%));transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}
+.dome.lens .print{filter:url(#dome)}
 .device.clock svg{max-height:calc(100vh - 210px)}
 .device.watch svg{max-height:calc(100vh - 150px)}
 .shadow{filter:blur(28px);opacity:.55}
@@ -40,15 +49,19 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 [data-btn] .cap{transition:transform .07s ease}
 [data-btn].down .cap{transform:translate(var(--px,0),var(--py,0))}
 
-/* LCD behaviour */
-.s{transition:fill .07s linear}
-.seg-shadow .lcdl{filter:url(#lcdShadow)}
-.mgl{filter:url(#mgGlow)}
-.no-ghost .s:not(.on){fill:transparent!important}
+/* LCD behaviour: printed ghosts in the dial layer, live segments above; segments fade like real LCD (quick on, slower off) */
+.print .s{fill:var(--g)}
+.no-ghost .print .s{fill:transparent}
+.dyn .s{opacity:0;transition:opacity .12s linear}
+.dyn .s.on{opacity:1;transition-duration:.05s}
+.dyn .mgl{filter:url(#mgGlow)}
+.dyn .stl{filter:url(#stGlow)}
+.seg-shadow .dyn .lcdl{filter:url(#lcdShadow)}
+.device:not(.seg-shadow) .dyn g{filter:none}
 .el{transition:opacity .25s ease}
 .lit .el{opacity:.55}
 .lit.neg .el{opacity:.16}
-.lit.neg .lcdl{filter:brightness(1.25) drop-shadow(0 0 5px rgba(255,170,70,.65))}
+.lit.neg .dyn .lcdl{filter:brightness(1.25) drop-shadow(0 0 5px rgba(255,170,70,.65))}
 
 /* ------------------------------------------------ panel */
 .panel{background:linear-gradient(180deg,rgba(14,20,32,.92),rgba(9,13,21,.96));border-left:1px solid var(--line);padding:18px 18px 28px;overflow:auto;max-height:100vh;position:sticky;top:0}
@@ -96,4 +109,4 @@ input[type=range]{accent-color:var(--gold);width:110px}
   .device-wrap{width:min(100%,520px)}
   .pbtn{min-width:calc(50% - 6px);flex:1}
 }
-@media (prefers-reduced-motion:reduce){.device{transition:none}}
+@media (prefers-reduced-motion:reduce){.device,.device .spec{transition:none}}

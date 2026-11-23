@@ -13,9 +13,9 @@ fs.mkdirSync(OUT, { recursive: true });
 
 // Aura (soft layer under a lit segment) per face & class, in face units (1000 = dial diameter).
 const AURA = {
-  arc: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.32, color: '#1c221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f1b44a' } },
-  desk: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.30, color: '#1e221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f4bb50' } },
-  noir: { lcd: { dx: 0, dy: 0, sigma: 3.2, alpha: 0.42, color: '#ff9a30' }, mg: { dx: 0, dy: 0, sigma: 5, alpha: 0.55, color: '#ffa840' } },
+  arc: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.32, color: '#1c221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f1b44a' }, st: { dx: 0, dy: 0, sigma: 3, alpha: 0.6, color: '#9fc0f2' } },
+  desk: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.30, color: '#1e221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f4bb50' }, st: { dx: 0, dy: 0, sigma: 3, alpha: 0.6, color: '#a9c6f4' } },
+  noir: { lcd: { dx: 0, dy: 0, sigma: 3.2, alpha: 0.42, color: '#ff9a30' }, mg: { dx: 0, dy: 0, sigma: 5, alpha: 0.55, color: '#ffa840' }, st: { dx: 0, dy: 0, sigma: 3.2, alpha: 0.55, color: '#ffa840' } },
 };
 
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
@@ -36,7 +36,7 @@ for (const id of F.ids) {
     const cnv = document.createElement('canvas');
     const ctx = cnv.getContext('2d', { willReadFrequently: true });
     for (const el of document.querySelectorAll('[data-s]')) {
-      const cls = el.classList.contains('mg') ? 'mg' : 'lcd';
+      const cls = el.classList.contains('st') ? 'st' : el.classList.contains('mg') ? 'mg' : 'lcd';
       const A = aura[cls];
       const bb = el.getBBox();
       const m = Math.ceil((Math.abs(A.dx) + Math.abs(A.dy) + 3 * A.sigma) * k) + 2;
@@ -63,7 +63,7 @@ for (const id of F.ids) {
     return out;
   }, { size: SIZE, aura: AURA[id] });
   const pal = face.palette;
-  fs.writeFileSync(`${OUT}/${id}_segs.json`, JSON.stringify({ id, name: face.name, size: SIZE, colors: { lcd: pal.lcdOn, mg: pal.mgOn }, aura: AURA[id], segs }));
+  fs.writeFileSync(`${OUT}/${id}_segs.json`, JSON.stringify({ id, name: face.name, size: SIZE, colors: { lcd: pal.lcdOn, mg: pal.mgOn, st: pal.stOn }, aura: AURA[id], segs }));
   console.log(id, segs.length, 'segments');
 }
 await browser.close();

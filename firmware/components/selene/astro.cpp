@@ -232,6 +232,8 @@ int hour_angle_index(double ha) {
     return 0;
   if (h < 12.5)
     return (int) std::floor(h + 0.5);
+  if (h >= 17.5 && h < 18.5)
+    return 13;  // lower transit: the nadir mark
   return -1;
 }
 

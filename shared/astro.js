@@ -187,6 +187,7 @@
     const h = ((haHours + 6) % 24 + 24) % 24;
     if (h >= 23.5) return 0;
     if (h < 12.5) return Math.floor(h + 0.5);
+    if (h >= 17.5 && h < 18.5) return 13; // lower transit: the nadir mark
     return -1;
   }
 

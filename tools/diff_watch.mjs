@@ -26,6 +26,11 @@ for (let run = 0; run < 12; run++) {
     } else if (r < 0.92) { step(100 + Math.floor(rnd() * 2500)); snap(); }
     else { step(Math.floor(rnd() * 90) * 60000); snap(); }
   }
+  // demonstration: hold MODE past 3 s, then sample the 1/8 s animation (phase lap, marker lap, nadir mark, stars)
+  js.press('C', now); ops.push(`P C ${now} ${rt}`);
+  for (let t = 0; t < 3200; t += 50) { step(50); js.tick(now); ops.push(`T x ${now} ${rt}`); }
+  js.release('C', now); ops.push(`R C ${now} ${rt}`); snap();
+  for (let i = 0; i < 90; i++) { step(41 + Math.floor(rnd() * 90)); snap(); }
   // C++: same initial settings except h24 handled by replaying: set via env-less default false; emulate by pressing A in TIME first if js.h24 initially true
   const init = js.s.h24;
   const out = execFileSync('firmware/tests/watch_host', { input: ops.join('\n') + '\n', env: {} }).toString().trim().split('\n');

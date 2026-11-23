@@ -20,6 +20,7 @@ const lines = [
   c('SEG_P', 'p0') + '  // moon phase slots 0..8', c('SEG_H', 'h0') + '  // hour-angle markers 0..12',
   c('SEG_SUNE', 'sune'), c('SEG_SUNW', 'sunw'), c('SEG_R', 'r0') + '  // reflections 0..8 (optional)',
   c('SEG_Q', 'q0') + '  // seconds ring 0..59 (optional)',
+  c('SEG_S', 's0') + '  // star field 0..17', c('SEG_HN', 'hn') + '  // nadir mark (moon at lower transit)',
   '}  // namespace selene', '}  // namespace esphome', '',
 ];
 fs.writeFileSync('firmware/components/selene/segments.h', lines.join('\n'));

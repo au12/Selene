@@ -5,7 +5,7 @@
 Output per face: face_<id>.h with
   * background: RGB565 (ordered-dithered) for the visible dial circle only, row spans
   * sprites:    per logical segment bbox + interleaved [body, aura] 8-bit coverage
-  * colors:     lit colour and aura colour per segment class (lcd / mg)
+  * colors:     lit colour and aura colour per segment class (lcd / mg / st)
 """
 import base64
 import json
@@ -20,6 +20,8 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 SEG_IDS = None
 
+
+CLASSES = ['lcd', 'mg', 'st']  # segment colour classes: LCD digits, moon graph, star field
 
 def seg_ids():
     import subprocess
@@ -104,7 +106,7 @@ def pack(face_dir: Path, out_dir: Path, preview_dir: Path | None):
             inter = np.empty(body.size * 2, dtype=np.uint8)
             inter[0::2] = body
             inter[1::2] = aura
-            sprites[i] = (s['x'], s['y'], s['w'], s['h'], len(masks), 0 if s['cls'] == 'lcd' else 1)
+            sprites[i] = (s['x'], s['y'], s['w'], s['h'], len(masks), CLASSES.index(s['cls']))
             masks += inter.tobytes()
         on = {k: hex565(v) for k, v in meta['colors'].items()}
         au = {k: hex565(v['color']) for k, v in meta['aura'].items()}
@@ -122,9 +124,9 @@ def pack(face_dir: Path, out_dir: Path, preview_dir: Path | None):
                 '{%d,%d,%d,%d,%d,%d}' % sp if sp else '{0,0,0,0,0,0}' for sp in sprites)),
             f'alignas(4) static const char MASKS[] =\n{c_string(masks_z)};',
             'static const FaceDef FACE = {"%s", "%s", %d, reinterpret_cast<const uint8_t *>(BG), %d, %d, ROWS, SPRITES, '
-            'reinterpret_cast<const uint8_t *>(MASKS), %d, %d, {0x%04x, 0x%04x}, {0x%04x, 0x%04x}};' % (
+            'reinterpret_cast<const uint8_t *>(MASKS), %d, %d, {0x%04x, 0x%04x, 0x%04x}, {0x%04x, 0x%04x, 0x%04x}};' % (
                 fid, meta['name'], size, len(bg_z), len(bg_bytes), len(masks_z), len(masks),
-                on['lcd'][0], on['mg'][0], au['lcd'][0], au['mg'][0]),
+                on['lcd'][0], on['mg'][0], on['st'][0], au['lcd'][0], au['mg'][0], au['st'][0]),
             '}  // namespace ' + name, '}  // namespace selene', '}  // namespace esphome', '']
         (out_dir / f'{name}.h').write_text('\n'.join(hdr))
         print(f'{fid}: bg {len(bg_bytes)/1024:.0f}->{len(bg_z)/1024:.0f} KiB, masks {len(masks)/1024:.0f}->{len(masks_z)/1024:.0f} KiB, '
@@ -163,7 +165,7 @@ def preview(fid, bg565, rows, sprites, masks, on, au, ids, preview_dir, size):
                 continue
             x, y, w, h, off, cls = sp
             m = np.frombuffer(bytes(masks[off:off + w * h * 2]), dtype=np.uint8).reshape(h, w, 2)[..., pas].astype(np.float32) / 255
-            col = np.array(unpack((au if pas else on)['lcd' if cls == 0 else 'mg'][0]), dtype=np.float32)
+            col = np.array(unpack((au if pas else on)[CLASSES[cls]][0]), dtype=np.float32)
             region = rgb[y:y + h, x:x + w]
             region[:] = region * (1 - m[..., None]) + col * m[..., None]
     Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8)).save(preview_dir / f'{fid}_preview.png')

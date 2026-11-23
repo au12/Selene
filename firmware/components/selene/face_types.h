@@ -14,7 +14,7 @@ struct RowSpan {
 struct SpriteDef {
   uint16_t x, y, w, h;  // bbox incl. aura margin, in panel pixels
   uint32_t off;         // byte offset into masks[] (2 bytes per pixel: body, aura)
-  uint8_t cls;          // 0 = LCD segment, 1 = moon-graph segment
+  uint8_t cls;          // 0 = LCD segment, 1 = moon-graph segment, 2 = star
 };
 
 struct FaceDef {
@@ -29,8 +29,8 @@ struct FaceDef {
   const uint8_t *masks_lz4;  // LZ4 block: interleaved [body, aura] coverage per sprite pixel
   uint32_t masks_lz4_len;
   uint32_t masks_len;
-  uint16_t on[2];    // RGB565 lit colour per class
-  uint16_t aura[2];  // RGB565 shadow/glow colour per class
+  uint16_t on[3];    // RGB565 lit colour per class
+  uint16_t aura[3];  // RGB565 shadow/glow colour per class
 };
 
 }  // namespace selene

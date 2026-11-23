@@ -66,64 +66,167 @@
   const BTN = { B: 'SET', C: 'MODE', D: 'REV', A: 'FWD', L: 'LIGHT' };
   const KEYS = { B: 'B', C: 'C', D: 'D', A: 'A', L: 'L' };
 
-  function filters(pal) {
-    return `<filter id="lcdShadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="2.2" dy="2.8" stdDeviation="1.3" flood-color="${pal.shadow}" flood-opacity="1"/></filter>
+  // ------------------------------------------------------------------ device rendering
+  // A device is five stacked SVG layers that share one viewBox and sit at different depths, so tilting it
+  // gives real parallax: body (case, strap, pushers) · dial (printed face, seen through the dome) ·
+  // segments (the live LCD) · glass (bezel lip and crystal rim) · reflections.
+  const n1 = (n) => (+n).toFixed(1);
+  const pol = (cx, cy, r, deg) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
+  const arcD = (cx, cy, r, a0, a1) => { const p = pol(cx, cy, r, a0), q = pol(cx, cy, r, a1); return `M${n1(p[0])} ${n1(p[1])}A${n1(r)} ${n1(r)} 0 ${Math.abs(a1 - a0) > 180 ? 1 : 0} ${a1 > a0 ? 1 : 0} ${n1(q[0])} ${n1(q[1])}`; };
+  /** Ring sector between two radii (closed path). */
+  const sectorD = (cx, cy, r0, r1, a0, a1) => { const p = pol(cx, cy, r0, a1); return `${arcD(cx, cy, r1, a0, a1)}L${n1(p[0])} ${n1(p[1])}${arcD(cx, cy, r0, a1, a0).replace('M', 'L')}Z`; };
+  /** Clip that cuts the crystal aperture out of a body layer: the dial is a separate, deeper layer seen through it. */
+  const holeClip = (cx, cy, r) => `<clipPath id="bodyHole"><path clip-rule="evenodd" d="M-600 -600H1600V2400H-600ZM${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z"/></clipPath>`;
+  const svgOpen = (cls, vb, extra = '') => `<svg class="L ${cls}" viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" ${extra}>`;
+
+  // Displacement map for the domed crystal: flat in the middle (the LCD stays put) and bending the print
+  // outward more and more toward the rim, the way a dome stretches whatever sits under its edge.
+  const lensCache = {};
+  function lensMap(r0) {
+    if (lensCache[r0]) return lensCache[r0];
+    const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d'), im = g.createImageData(N, N), d = im.data;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const x = (i + 0.5) / N * 1000 - 500, y = (j + 0.5) / N * 1000 - 500, r = Math.hypot(x, y) || 1;
+      const t = Math.min(1, Math.max(0, (r - r0) / (500 - r0))), m = -t * t, o = (j * N + i) * 4;
+      d[o] = Math.round(128 + 127 * m * x / r); d[o + 1] = Math.round(128 + 127 * m * y / r); d[o + 2] = 128; d[o + 3] = 255;
+    }
+    g.putImageData(im, 0, 0);
+    return (lensCache[r0] = c.toDataURL());
+  }
+  const LENS = { arc: { r0: 404, k: 21 }, desk: { r0: 450, k: 16 }, noir: { r0: 420, k: 18 } };
+  // The map reaches the filter as a data: image. Only switch the lens on once such an image is known to load here,
+  // because a map that fails to load would shift the whole dial instead of bending its rim.
+  let lensOk = false;
+  { const im = new Image(); im.onload = () => { lensOk = im.naturalWidth === 256; if (lensOk) $('#device').classList.add('lens'); }; im.src = lensMap(LENS.arc.r0); }
+
+  function dialLayers(vb, face, cx, cy, Rf) {
+    const pal = face.palette, s = Rf / 500, L = LENS[face.id];
+    const tf = `transform="translate(${cx - Rf} ${cy - Rf}) scale(${s})"`;
+    const clip = (id) => `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${Rf}"/></clipPath>`;
+    const print = face.svg.replace(/data-s="/g, 'data-g="');
+    const by = { lcd: '', mg: '', st: '' };
+    for (const q of face.segs) by[q.cls] += `<path class="s" data-s="${q.id}" d="${q.d}"/>`;
+    return `${svgOpen('dial', vb, 'aria-hidden="true"')}<defs>${clip('dialClip')}
+<filter id="dome" filterUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000" color-interpolation-filters="sRGB"><feImage href="${lensMap(L.r0)}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="none" result="m"/><feDisplacementMap in="SourceGraphic" in2="m" scale="${2 * L.k}" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+<circle cx="${cx}" cy="${cy}" r="${Rf + 30}" fill="#020203"/>
+<g clip-path="url(#dialClip)"><g ${tf}><g class="print">${print}</g></g></g></svg>
+${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
+<filter id="lcdShadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="2.2" dy="2.8" stdDeviation="1.3" flood-color="${pal.shadow}" flood-opacity="1"/></filter>
 <filter id="mgGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/><feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 .9 0 0 0  0 0 .6 0 0  0 0 0 .55 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>`;
+<filter id="stGlow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/><feColorMatrix in="b" type="matrix" values="${pal.negative ? '1 0 0 0 0  0 .8 0 0 0  0 0 .5 0 0' : '.7 0 0 0 0  0 .85 0 0 0  0 0 1 0 0'}  0 0 0 .75 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<g clip-path="url(#segClip)"><g ${tf} class="dyn"><g class="lcdl">${by.lcd}</g><g class="mgl">${by.mg}</g><g class="stl">${by.st}</g></g></g></svg>`;
   }
-  function pusher(btn, ang, cx, cy, r0) {
-    return `<g data-btn="${btn}" transform="rotate(${ang} ${cx} ${cy})" style="--px:-7px;--py:0px" role="button" aria-label="${BTN[btn]}">
-<rect x="${cx + r0 - 14}" y="${cy - 26}" width="26" height="52" rx="6" fill="#0c0e12"/>
-<g class="cap"><rect x="${cx + r0 + 4}" y="${cy - 20}" width="44" height="40" rx="9" fill="url(#steelV)"/>
-<rect x="${cx + r0 + 38}" y="${cy - 20}" width="10" height="40" rx="5" fill="#fff" opacity=".18"/>
-<path d="M${cx + r0 + 14} ${cy - 20}v40M${cx + r0 + 22} ${cy - 20}v40M${cx + r0 + 30} ${cy - 20}v40" stroke="#000" stroke-opacity=".18" stroke-width="2"/></g>
-<rect x="${cx + r0 - 20}" y="${cy - 40}" width="${84}" height="80" fill="transparent"/></g>`;
-  }
-  function watchSVG(face) {
-    const cx = 500, cy = 780, Rd = 352, s = Rd / 500;
-    let strapLines = '';
-    for (let y = 30; y < 330; y += 34) strapLines += `M352 ${y}H648`;
-    let strapLines2 = '';
-    for (let y = 1236; y < 1560; y += 34) strapLines2 += `M352 ${y}H648`;
-    let bezelDots = '';
-    for (let i = 0; i < 12; i++) { const a = (i * 30 - 90) * Math.PI / 180; bezelDots += `<circle cx="${(cx + 381 * Math.cos(a)).toFixed(1)}" cy="${(cy + 381 * Math.sin(a)).toFixed(1)}" r="${i % 3 ? 3.2 : 5}" fill="#3b424d"/>`; }
-    return `<svg viewBox="0 175 1000 1210" xmlns="http://www.w3.org/2000/svg" aria-label="Selene Arc watch">
-<defs>${filters(face.palette)}
-<linearGradient id="strap" x1="0" x2="1"><stop offset="0" stop-color="#0f1116"/><stop offset=".18" stop-color="#20242c"/><stop offset=".5" stop-color="#191c22"/><stop offset=".82" stop-color="#22262e"/><stop offset="1" stop-color="#0d0f13"/></linearGradient>
-<radialGradient id="caseG" cx="45%" cy="38%" r="70%"><stop offset="0" stop-color="#3a404a"/><stop offset=".6" stop-color="#1d2128"/><stop offset="1" stop-color="#0d0f13"/></radialGradient>
-<linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3f5f8"/><stop offset=".22" stop-color="#9aa2ae"/><stop offset=".45" stop-color="#e6e9ee"/><stop offset=".7" stop-color="#7b8390"/><stop offset="1" stop-color="#cfd4db"/></linearGradient>
-<linearGradient id="steelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f7f9"/><stop offset=".5" stop-color="#a7afba"/><stop offset="1" stop-color="#5f6672"/></linearGradient>
-<radialGradient id="crys" cx="30%" cy="22%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+
+  /** Bezel lip, the shadow it throws on the dial, and the edge of the domed crystal. Ra = aperture radius. */
+  function glassLayer(vb, cx, cy, Ra, o) {
+    return `${svgOpen('glass', vb, 'aria-hidden="true"')}<defs>
+<filter id="gb3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="gb7" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
+<linearGradient id="lipG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.lip[0]}"/><stop offset=".42" stop-color="${o.lip[1]}"/><stop offset=".6" stop-color="${o.lip[1]}"/><stop offset="1" stop-color="${o.lip[2]}"/></linearGradient>
+<linearGradient id="rimG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${o.rim}"/><stop offset=".36" stop-color="#fff" stop-opacity="0"/><stop offset=".64" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="${o.rim * 0.45}"/></linearGradient>
+<radialGradient id="wallG" gradientUnits="userSpaceOnUse" cx="${cx + 9}" cy="${cy + 13}" r="${Ra + 16}"><stop offset=".86" stop-color="#000" stop-opacity="0"/><stop offset=".95" stop-color="#000" stop-opacity="${o.wall * 0.45}"/><stop offset="1" stop-color="#000" stop-opacity="${o.wall}"/></radialGradient>
+<radialGradient id="tintG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset=".55" stop-color="#9fc0ee" stop-opacity="0"/><stop offset=".84" stop-color="#9fc0ee" stop-opacity="${o.tint}"/><stop offset=".94" stop-color="#05070a" stop-opacity="${o.edge * 0.5}"/><stop offset="1" stop-color="#000" stop-opacity="${o.edge}"/></radialGradient>
 </defs>
-<ellipse cx="${cx}" cy="${cy + 40}" rx="440" ry="470" fill="#000" opacity=".55" filter="url(#soft)"/>
-<path d="M346 -10H654L664 340H336Z" fill="url(#strap)"/><path d="${strapLines}" stroke="#000" stroke-opacity=".35" stroke-width="3"/><path d="${strapLines}" stroke="#fff" stroke-opacity=".05" stroke-width="1.5" transform="translate(0 3)"/>
-<path d="M336 1220H664L654 1570H346Z" fill="url(#strap)"/><path d="${strapLines2}" stroke="#000" stroke-opacity=".35" stroke-width="3"/><path d="${strapLines2}" stroke="#fff" stroke-opacity=".05" stroke-width="1.5" transform="translate(0 3)"/>
-<path d="M318 520C318 400 330 330 360 318H640C670 330 682 400 682 520Z" fill="url(#caseG)"/>
-<path d="M318 1040C318 1160 330 1230 360 1242H640C670 1230 682 1160 682 1040Z" fill="url(#caseG)"/>
-${pusher('B', 212, cx, cy, 420)}${pusher('C', 148, cx, cy, 420)}${pusher('D', -32, cx, cy, 420)}${pusher('A', 32, cx, cy, 420)}
-<circle cx="${cx}" cy="${cy}" r="436" fill="url(#caseG)"/>
-<circle cx="${cx}" cy="${cy}" r="434" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
-<circle cx="${cx}" cy="${cy}" r="402" fill="url(#bezel)"/>
-<circle cx="${cx}" cy="${cy}" r="402" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="2"/>
-${bezelDots}
-<circle cx="${cx}" cy="${cy}" r="364" fill="#07090d"/>
-<g transform="translate(${cx - Rd} ${cy - Rd}) scale(${s})" class="face">${face.svg}</g>
-<circle cx="${cx}" cy="${cy}" r="${Rd + 3}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="10"/>
-<circle cx="${cx}" cy="${cy}" r="${Rd + 6}" fill="url(#crys)" pointer-events="none"/>
-<path d="M${cx - 300} ${cy - 170}A${Rd - 8} ${Rd - 8} 0 0 1 ${cx + 120} ${cy - 330}" fill="none" stroke="#fff" stroke-opacity=".10" stroke-width="16" stroke-linecap="round" pointer-events="none"/>
+<circle cx="${cx}" cy="${cy}" r="${Ra + 1}" fill="url(#wallG)"/>
+<g class="domeonly"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#tintG)"/>
+<path d="${arcD(cx, cy, Ra - 19, 204, 264)}" fill="none" stroke="#fff" stroke-opacity="${o.rim * 0.5}" stroke-width="8" stroke-linecap="round" filter="url(#gb3)"/>
+<path d="${arcD(cx, cy, Ra - 17, 20, 70)}" fill="none" stroke="#fff" stroke-opacity="${o.rim * 0.2}" stroke-width="11" stroke-linecap="round" filter="url(#gb7)"/>
+<circle cx="${cx}" cy="${cy}" r="${Ra - 11}" fill="none" stroke="url(#rimG)" stroke-width="1.2" opacity=".5"/></g>
+<circle cx="${cx}" cy="${cy}" r="${Ra + 8}" fill="none" stroke="url(#lipG)" stroke-width="16"/>
+<circle cx="${cx}" cy="${cy}" r="${Ra + 16}" fill="none" stroke="#000" stroke-opacity=".85" stroke-width="2"/>
+<circle cx="${cx}" cy="${cy}" r="${Ra}" fill="none" stroke="#000" stroke-opacity=".9" stroke-width="3"/>
+<circle cx="${cx}" cy="${cy}" r="${Ra - 4}" fill="none" stroke="url(#rimG)" stroke-width="2.4"/>
 </svg>`;
   }
-  function clockSVG(face) {
-    const cx = 500, cy = 560, Rd = 404, s = Rd / 500, noir = face.id === 'noir';
+  /** Reflections of the room in the dome; this layer floats above the glass and slides as the device tilts. */
+  function specLayer(vb, cx, cy, Ra, k) {
+    const h = pol(cx, cy, Ra * 0.6, 232);
+    return `${svgOpen('spec', vb, 'aria-hidden="true"')}<defs>
+<filter id="sb8" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+<filter id="sb14" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+<linearGradient id="paneG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${0.2 * k}"/><stop offset="1" stop-color="#fff" stop-opacity="${0.02 * k}"/></linearGradient>
+</defs>
+<path d="${sectorD(cx, cy, Ra * 0.5, Ra * 0.84, 202, 250)}" fill="url(#paneG)" filter="url(#sb14)"/>
+<path d="${sectorD(cx, cy, Ra * 0.6, Ra * 0.82, 258, 276)}" fill="#fff" fill-opacity="${0.06 * k}" filter="url(#sb14)"/>
+<ellipse cx="${n1(h[0])}" cy="${n1(h[1])}" rx="52" ry="12" transform="rotate(-38 ${n1(h[0])} ${n1(h[1])})" fill="#fff" fill-opacity="${0.26 * k}" filter="url(#sb8)"/>
+<path d="${sectorD(cx, cy, Ra * 0.62, Ra * 0.8, 28, 64)}" fill="#fff" fill-opacity="${0.045 * k}" filter="url(#sb14)"/>
+</svg>`;
+  }
+
+  function pusher(btn, ang, cx, cy, R) {
+    const x = cx + R;
+    let knurl = '';
+    for (let i = 0; i < 5; i++) knurl += `M${x + 15 + i * 5} ${cy - 16}v32`;
+    return `<g data-btn="${btn}" transform="rotate(${ang} ${cx} ${cy})" style="--px:-6px;--py:0px" role="button" aria-label="${BTN[btn]}">
+<rect x="${x - 34}" y="${cy - 47}" width="54" height="94" rx="21" fill="url(#guardG)"/>
+<rect x="${x - 34}" y="${cy - 47}" width="54" height="94" rx="21" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
+<rect x="${x + 6}" y="${cy - 20}" width="18" height="40" rx="5" fill="#010102"/>
+<g class="cap"><rect x="${x + 10}" y="${cy - 17}" width="32" height="34" rx="7" fill="url(#steelV)"/>
+<path d="${knurl}" stroke="#000" stroke-opacity=".28" stroke-width="1.6"/>
+<rect x="${x + 36}" y="${cy - 17}" width="6" height="34" rx="3" fill="#fff" opacity=".32"/></g>
+<rect x="${x - 34}" y="${cy - 52}" width="100" height="104" fill="transparent"/></g>`;
+  }
+  function watchLayers(face) {
+    const vb = '0 240 1000 1080', cx = 500, cy = 780, Rc = 440, Ra = 356, Rf = 368, Rs = Rc - 30;
+    let ribs = '';
+    for (let y = 8; y < 318; y += 27) ribs += `M310 ${y}H440M560 ${y}H690`;
+    const strap = `<path d="M302 -30H698L705 360H295Z" fill="url(#strapG)"/>
+<path d="M452 -30H548V306Q548 322 532 322H468Q452 322 452 306Z" fill="#040506" opacity=".8"/>
+<path d="M452 -30V306Q452 322 468 322H532Q548 322 548 306V-30" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
+<path d="${ribs}" stroke="#000" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+<path d="${ribs}" stroke="#fff" stroke-opacity=".055" stroke-width="1.6" stroke-linecap="round" transform="translate(0 4.5)"/>
+<path d="M244 610C244 462 274 374 312 344Q323 335 338 335H662Q677 335 688 344C726 374 756 462 756 610Z" fill="url(#lugG)"/>
+<path d="M330 338.5H670" stroke="#fff" stroke-opacity=".13" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M262 520C270 440 292 380 318 352" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="3" stroke-linecap="round"/>
+<circle cx="322" cy="366" r="6.5" fill="#020203"/><circle cx="322" cy="367.5" r="6.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.4"/>
+<circle cx="678" cy="366" r="6.5" fill="#020203"/><circle cx="678" cy="367.5" r="6.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.4"/>`;
+    const Rm = (Rs - 2 + Ra + 16) / 2, Wm = Rs - 2 - (Ra + 16);
+    return `${svgOpen('body', vb, 'aria-label="Selene Arc watch"')}<defs>
+${holeClip(cx, cy, Ra + 9)}
+<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
+<filter id="bb2" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
+<filter id="bb9" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+<linearGradient id="slopeG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3d43"/><stop offset=".3" stop-color="#17181b"/><stop offset=".62" stop-color="#0b0c0d"/><stop offset="1" stop-color="#1c1e21"/></linearGradient>
+<linearGradient id="strapG" x1="0" x2="1"><stop offset="0" stop-color="#040405"/><stop offset=".07" stop-color="#17191d"/><stop offset=".3" stop-color="#101114"/><stop offset=".7" stop-color="#0f1013"/><stop offset=".93" stop-color="#191b1f"/><stop offset="1" stop-color="#040405"/></linearGradient>
+<linearGradient id="lugG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24262b"/><stop offset=".12" stop-color="#131417"/><stop offset="1" stop-color="#0a0b0d"/></linearGradient>
+<linearGradient id="guardG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1f23"/><stop offset=".5" stop-color="#0e0f11"/><stop offset="1" stop-color="#060607"/></linearGradient>
+<radialGradient id="caseG" cx="38%" cy="28%" r="80%"><stop offset="0" stop-color="#26282d"/><stop offset=".55" stop-color="#111215"/><stop offset="1" stop-color="#060607"/></radialGradient>
+<linearGradient id="chamG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".3" stop-color="#fff" stop-opacity=".03"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
+<linearGradient id="glossG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".17"/><stop offset=".28" stop-color="#fff" stop-opacity=".015"/><stop offset=".72" stop-color="#fff" stop-opacity=".01"/><stop offset="1" stop-color="#fff" stop-opacity=".09"/></linearGradient>
+<linearGradient id="steelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".45" stop-color="#aab1bb"/><stop offset="1" stop-color="#565c66"/></linearGradient>
+</defs><g clip-path="url(#bodyHole)">
+<ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#soft)"/>
+<g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g>
+${pusher('B', 212, cx, cy, Rc)}${pusher('C', 148, cx, cy, Rc)}${pusher('D', -32, cx, cy, Rc)}${pusher('A', 32, cx, cy, Rc)}
+<circle cx="${cx}" cy="${cy}" r="${Rc}" fill="url(#caseG)"/>
+<circle cx="${cx}" cy="${cy}" r="${Rc - 1.5}" fill="none" stroke="url(#chamG)" stroke-width="3"/>
+<circle cx="${cx}" cy="${cy}" r="${(Rc + Rs) / 2}" fill="none" stroke="url(#slopeG)" stroke-width="${Rc - Rs}"/>
+<circle cx="${cx}" cy="${cy}" r="${Rs + 1}" fill="#000" opacity=".7"/>
+<circle cx="${cx}" cy="${cy}" r="${Rs - 2}" fill="#0b0c0e"/>
+<circle cx="${cx}" cy="${cy}" r="${Rm}" fill="none" stroke="url(#glossG)" stroke-width="${Wm}"/>
+<circle cx="${cx}" cy="${cy}" r="${Rs - 4}" fill="none" stroke="url(#chamG)" stroke-width="2.4"/>
+<path d="${arcD(cx, cy, Rm + 3, 198, 256)}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="20" stroke-linecap="round" filter="url(#bb9)"/>
+<path d="${arcD(cx, cy, Rm + 6, 208, 247)}" fill="none" stroke="#fff" stroke-opacity=".42" stroke-width="5" stroke-linecap="round" filter="url(#bb2)"/>
+<path d="${arcD(cx, cy, Rm + 6, 262, 274)}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="4" stroke-linecap="round" filter="url(#bb2)"/>
+<path d="${arcD(cx, cy, Rm, 18, 68)}" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="22" stroke-linecap="round" filter="url(#bb9)"/>
+<path d="${arcD(cx, cy, Rm - 5, 30, 58)}" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="3.5" stroke-linecap="round" filter="url(#bb2)"/>
+</g></svg>
+${dialLayers(vb, face, cx, cy, Rf)}
+${glassLayer(vb, cx, cy, Ra, { lip: ['#34373d', '#060607', '#1b1d21'], rim: 0.75, wall: 0.62, tint: 0.035, edge: 0.42 })}
+${specLayer(vb, cx, cy, Ra, 1)}`;
+  }
+  function clockLayers(face) {
+    const vb = '0 0 1000 1240', cx = 500, cy = 560, Ra = 398, Rf = 410, noir = face.id === 'noir';
     const ring0 = noir ? ['#2b2f36', '#0b0c0f', '#3a3f48', '#08090b'] : ['#f1e3c0', '#a7864f', '#f6ead0', '#8b6b3a'];
     const ped = noir ? ['#1b1d22', '#0a0b0d'] : ['#7a4e2f', '#3e2616'];
-    return `<svg viewBox="0 0 1000 1240" xmlns="http://www.w3.org/2000/svg" aria-label="Selene ${face.name} clock">
-<defs>${filters(face.palette)}
+    return `${svgOpen('body', vb, `aria-label="Selene ${face.name} clock"`)}<defs>
+${holeClip(cx, cy, Ra + 9)}
+<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
 <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${ring0[0]}"/><stop offset=".35" stop-color="${ring0[1]}"/><stop offset=".6" stop-color="${ring0[2]}"/><stop offset="1" stop-color="${ring0[3]}"/></linearGradient>
 <linearGradient id="ped" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${ped[1]}"/><stop offset=".45" stop-color="${ped[0]}"/><stop offset="1" stop-color="${ped[1]}"/></linearGradient>
 <linearGradient id="btnTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${noir ? '#3a3f48' : '#f4e9d2'}"/><stop offset="1" stop-color="${noir ? '#121418' : '#9a7a46'}"/></linearGradient>
-<radialGradient id="crys" cx="30%" cy="22%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity="${noir ? .1 : .24}"/><stop offset=".4" stop-color="#fff" stop-opacity=".03"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-</defs>
+</defs><g clip-path="url(#bodyHole)">
 <ellipse cx="${cx}" cy="1190" rx="330" ry="34" fill="#000" opacity=".6" filter="url(#soft)"/>
 <path d="M392 990H608L700 1168Q704 1182 690 1182H310Q296 1182 300 1168Z" fill="url(#ped)"/>
 <path d="M300 1168H700" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
@@ -134,13 +237,11 @@ ${bezelDots}
 <circle cx="${cx}" cy="${cy}" r="474" fill="url(#ring)"/>
 <circle cx="${cx}" cy="${cy}" r="474" fill="none" stroke="#000" stroke-opacity=".4" stroke-width="2"/>
 <circle cx="${cx}" cy="${cy}" r="440" fill="${noir ? '#060708' : '#2a2219'}"/>
-<circle cx="${cx}" cy="${cy}" r="424" fill="url(#ring)" opacity=".55"/>
-<circle cx="${cx}" cy="${cy}" r="${Rd + 8}" fill="#050607"/>
-<g transform="translate(${cx - Rd} ${cy - Rd}) scale(${s})" class="face">${face.svg}</g>
-<circle cx="${cx}" cy="${cy}" r="${Rd + 2}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="8"/>
-<circle cx="${cx}" cy="${cy}" r="${Rd + 6}" fill="url(#crys)" pointer-events="none"/>
-<path d="M${cx - 330} ${cy - 210}A${Rd - 10} ${Rd - 10} 0 0 1 ${cx + 150} ${cy - 380}" fill="none" stroke="#fff" stroke-opacity="${noir ? .05 : .12}" stroke-width="18" stroke-linecap="round" pointer-events="none"/>
-</svg>`;
+<circle cx="${cx}" cy="${cy}" r="426" fill="url(#ring)" opacity=".55"/>
+</g></svg>
+${dialLayers(vb, face, cx, cy, Rf)}
+${glassLayer(vb, cx, cy, Ra, noir ? { lip: ['#23262b', '#050506', '#131518'], rim: 0.45, wall: 0.6, tint: 0.02, edge: 0.4 } : { lip: ['#4a3f2d', '#15110b', '#2c2418'], rim: 0.85, wall: 0.42, tint: 0.03, edge: 0.22 })}
+${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   }
 
   // ------------------------------------------------------------------ mount
@@ -151,13 +252,12 @@ ${bezelDots}
     if (!F.ids.includes(id)) id = 'arc';
     faceId = id; store.set('face', id);
     const face = F.build(id), pal = face.palette;
-    device.className = 'device ' + face.kind;
-    device.innerHTML = face.kind === 'watch' ? watchSVG(face) : clockSVG(face);
-    deviceSvg = device.firstElementChild;
+    device.className = 'device ' + face.kind + (pal.negative ? ' neg' : '') + (lensOk ? ' lens' : '');
+    device.innerHTML = face.kind === 'watch' ? watchLayers(face) : clockLayers(face);
+    deviceSvg = device.querySelector('.segs');
     const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-    st.textContent = `.s{fill:var(--g)} .lcd{--g:${pal.lcdGhost}} .mg{--g:${pal.mgGhost}} .lcd.on{fill:${pal.lcdOn}} .mg.on{fill:${pal.mgOn}}`;
-    deviceSvg.prepend(st);
-    if (pal.negative) deviceSvg.classList.add('neg');
+    st.textContent = `.lcd{--g:${pal.lcdGhost}} .mg{--g:${pal.mgGhost}} .st{--g:${pal.stGhost}} .dyn .lcdl .s{fill:${pal.lcdOn}} .dyn .mgl .s{fill:${pal.mgOn}} .dyn .stl .s{fill:${pal.stOn}}`;
+    device.querySelector('.dial').prepend(st.cloneNode(true)); deviceSvg.prepend(st);
     segEls = new Map();
     deviceSvg.querySelectorAll('[data-s]').forEach((el) => segEls.set(el.dataset.s, el));
     lit = new Set();
@@ -171,15 +271,15 @@ ${bezelDots}
   }
   function applyOpts() {
     if (!deviceSvg) return;
-    deviceSvg.classList.toggle('no-ghost', !opts.ghost);
-    deviceSvg.classList.toggle('seg-shadow', opts.shadow);
-    deviceSvg.querySelectorAll('.mgl').forEach((g) => { g.style.filter = opts.shadow ? '' : 'none'; });
+    device.classList.toggle('no-ghost', !opts.ghost);
+    device.classList.toggle('seg-shadow', opts.shadow);
+    device.classList.toggle('dome', opts.dome);
   }
   let lightTimer = 0;
   function lightOn() {
     if (!deviceSvg || F.build(faceId).kind !== 'clock') return;
-    deviceSvg.classList.add('lit'); clearTimeout(lightTimer);
-    lightTimer = setTimeout(() => deviceSvg && deviceSvg.classList.remove('lit'), 3000);
+    device.classList.add('lit'); clearTimeout(lightTimer);
+    lightTimer = setTimeout(() => device.classList.remove('lit'), 3000);
   }
 
   // ------------------------------------------------------------------ input
@@ -207,7 +307,7 @@ ${bezelDots}
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
     el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
-  function bindDeviceButtons() { deviceSvg.querySelectorAll('[data-btn]').forEach(bindPointer); }
+  function bindDeviceButtons() { device.querySelectorAll('[data-btn]').forEach(bindPointer); }
   function buildButtons(face) {
     const order = face.kind === 'clock' ? ['B', 'C', 'D', 'A', 'L'] : ['B', 'C', 'D', 'A'];
     const bar = $('#btnbar');
@@ -224,15 +324,29 @@ ${bezelDots}
   window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (keymap[k]) up(keymap[k]); });
   window.addEventListener('blur', () => [...pressed].forEach(up));
 
-  // subtle tilt on desktop
+  // tilt: the layers sit at different depths, so turning the device slides the reflections over the dial
   const wrap = $('.device-wrap');
-  if (window.matchMedia('(hover:hover) and (pointer:fine)').matches && !window.matchMedia('(prefers-reduced-motion:reduce)').matches) {
+  const still = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function tilt(x, y) { // x, y in -1..1
+    x = Math.max(-1, Math.min(1, x)); y = Math.max(-1, Math.min(1, y));
+    device.style.transform = `rotateY(${(x * 8).toFixed(2)}deg) rotateX(${(-y * 6.5).toFixed(2)}deg)`;
+    device.style.setProperty('--tx', x.toFixed(3)); device.style.setProperty('--ty', y.toFixed(3));
+  }
+  if (!still && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
     $('#stage').addEventListener('pointermove', (e) => {
       const r = wrap.getBoundingClientRect();
-      const x = (e.clientX - (r.left + r.width / 2)) / r.width, y = (e.clientY - (r.top + r.height / 2)) / r.height;
-      device.style.transform = `rotateY(${(x * 5).toFixed(2)}deg) rotateX(${(-y * 4).toFixed(2)}deg)`;
+      tilt((e.clientX - (r.left + r.width / 2)) / r.width * 1.6, (e.clientY - (r.top + r.height / 2)) / r.height * 1.6);
     });
-    $('#stage').addEventListener('pointerleave', () => { device.style.transform = ''; });
+    $('#stage').addEventListener('pointerleave', () => tilt(0, 0));
+  } else if (!still && 'DeviceOrientationEvent' in window) {
+    // phones that report orientation without a permission prompt: tilt the phone, the crystal answers
+    let base = null;
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.gamma === null || e.beta === null) return;
+      if (!base) base = { g: e.gamma, b: e.beta };
+      base.g += (e.gamma - base.g) * 0.01; base.b += (e.beta - base.b) * 0.01; // slowly re-centre on how it is held
+      tilt((e.gamma - base.g) / 22, (e.beta - base.b) / 22);
+    });
   }
 
   // ------------------------------------------------------------------ render loop
@@ -380,11 +494,12 @@ ${bezelDots}
     }, () => { $('#geo').textContent = 'Location unavailable'; setTimeout(() => { $('#geo').textContent = 'Use my location'; }, 2500); }, { timeout: 10000, maximumAge: 600000 });
   });
 
-  const opts = { ghost: store.get('ghost', true), shadow: store.get('shadow', true) };
+  const opts = { ghost: store.get('ghost', true), shadow: store.get('shadow', true), dome: store.get('dome', true) };
   const bindToggle = (id, get, set) => { const el = $(id); el.checked = get(); el.addEventListener('change', () => { set(el.checked); applyOpts(); frame(); }); };
   bindToggle('#optSound', () => snd.on, (v) => { snd.on = v; store.set('sound', v); if (v) { snd.init(); snd.key(); } });
   bindToggle('#optGhost', () => opts.ghost, (v) => { opts.ghost = v; store.set('ghost', v); });
   bindToggle('#optShadow', () => opts.shadow, (v) => { opts.shadow = v; store.set('shadow', v); });
+  bindToggle('#optDome', () => opts.dome, (v) => { opts.dome = v; store.set('dome', v); });
   bindToggle('#optAuth', () => !!mod.s.authentic, (v) => { mod.s.authentic = v; mod.save(); });
   const vol = $('#optVol'); vol.value = snd.vol; vol.addEventListener('input', () => { snd.setVol(+vol.value); store.set('vol', +vol.value); });
   vol.addEventListener('change', () => { snd.init(); snd.key(); });

@@ -16,12 +16,12 @@ function state(kind) {
   if (kind === 'time') {
     dm('MON'); d7('t0', ' '); d7('t1', '6'); on.push('tdash'); d7('t2', '2'); d7('t3', '6');
     d7('b0', '1'); d7('b1', '0'); on.push('bcol'); d7('b2', '5'); d7('b3', '8'); d7('b4', '5'); d7('b5', '0');
-    on.push('pm', 'alm', 'chm', 'p3', 'h8', 'r3');
+    on.push('pm', 'alm', 'chm', 'p3', 'h8', 'r3'); for (let k = 0; k < 18; k++) if (0x37f8f >> k & 1) on.push('s' + k);
     for (let i = 0; i <= 50; i++) on.push('q' + i);
   } else {
     dm(' 24'); on.push('xdp'); d7('t0', ' '); d7('t1', '5'); on.push('tcol'); d7('t2', '2'); d7('t3', '5');
     d7('b0', ' '); d7('b1', '8'); on.push('bcol'); d7('b2', '3'); d7('b3', '5');
-    on.push('lage', 'lrise', 'lset', 'pm', 'sune', 'sunw', 'p6');
+    on.push('lage', 'lrise', 'lset', 'pm', 'sune', 'sunw', 'p6', 'hn'); for (let k = 0; k < 18; k++) on.push('s' + k);
   }
   return on;
 }

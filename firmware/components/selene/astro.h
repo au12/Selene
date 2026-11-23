@@ -33,7 +33,7 @@ void sun_rise_set(double day_start, double lat, double lon, int64_t *rise, int64
 void moon_rise_set(double day_start, double lat, double lon, int64_t *rise, int64_t *set);
 int64_t moon_hour_angle_time(double day_start, double lon, int hours);
 int phase_index(double age);           // 0..8
-int hour_angle_index(double ha_hours);  // 0..12 or -1
+int hour_angle_index(double ha_hours);  // 0..12, 13 = nadir mark, or -1
 int64_t round5(int64_t ms);
 
 }  // namespace astro

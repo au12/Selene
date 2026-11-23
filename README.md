@@ -7,12 +7,12 @@ Moon phase arc · moon hour angle · moon times · sunrise/sunset for any date �
 <p align="center"><img src="assets/screenshots/desktop.png" alt="Selene web simulator (desktop)" width="860"></p>
 
 Selene re-creates the *behaviour* of a late-80s moon-data LCD watch module — the button logic,
-the nine-position moon arc, the 13-step hour-angle indicator, moon times rounded to five minutes —
+the nine-position moon arc, the 13-step hour-angle indicator, the twinkling star field, moon times rounded to five minutes —
 with original faces drawn for it. The same face artwork and the same module logic run in two places:
 
 | | |
 |---|---|
-| **Web simulator** (`web/`, `dist/`) | Single 170 KB offline page. Three models (Arc wristwatch, Desk clock, Noir night clock), real buttons, WebAudio piezo beeps, time machine, city presets, live sky panel. Ships as a Docker image for Unraid. |
+| **Web simulator** (`web/`, `dist/`) | Single 185 KB offline page. Three models (Arc wristwatch, Desk clock, Noir night clock) under a domed crystal, real buttons, WebAudio piezo beeps, time machine, city presets, live sky panel. Ships as a Docker image for Unraid. |
 | **ESPHome clock** (`firmware/`, `enclosure/`) | Waveshare ESP32-P4 4" round 720×720 touch panel in a 3D-printed drum. Faces switch live (swipe or Home Assistant), physical SET/MODE/REV/FWD + LIGHT/SNOOZE buttons, speaker, auto-dimming, and moon/sun data published to Home Assistant. |
 
 ---
@@ -35,6 +35,17 @@ with original faces drawn for it. The same face artwork and the same module logi
 Moon time cycles automatically through the moon's hour angle at **18h (-1)**, **0h (-2)**, **6h (-3)** and **12h (-4)**;
 a day with no such event shows `-:--`. Times are shown in 5-minute units, as on the original module; the side
 panel shows the exact values.
+
+**The star field is live LCD, not print.** On the real module the stars are 18 LCD segments that are redrawn on
+every second tick, in every mode, in a pattern that depends only on the ones digit of the seconds and so repeats
+every ten seconds. The pattern table (`STARS` in `shared/module.js`) was read off video of a real watch frame by
+frame, as were two other details: a **nadir mark** that lights instead of the hour-angle marker while the moon is
+within half an hour of its lower transit (and on the `-4` moon time), and the **demo** timing — an 1/8 s tick, the
+marker lapping 24 steps while the phase advances every second tick, timekeeping and stars carrying on underneath.
+
+**The crystal is domed.** The watch and clocks are drawn as stacked layers at different depths: move the pointer
+(or tilt a phone that reports orientation) and the reflections slide over the dial while the dial shifts under the
+bezel. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
 
 ### Run it
 
@@ -78,9 +89,9 @@ like a printed dial and less like a screen.
 `firmware/selene-clock.yaml` + the external component `firmware/components/selene/`:
 
 - **Efficient rendering:** faces are pre-rendered at 720 px (dithered RGB565, LZ4, ~170 KB per face in flash) and
-  decoded into PSRAM. Each second only changed segments are recomposited and pushed, typically ~8–12k pixels
-  (<2 % of the panel). Full-frame vs incremental output is verified pixel-identical on the host.
-- **Same module as the web app:** C++ port of `shared/module.js`, verified identical on ~11,000 random
+  decoded into PSRAM. Each second only changed segments are recomposited and pushed, typically ~20k pixels
+  (about 4 % of the panel, stars included). Full-frame vs incremental output is verified pixel-identical on the host.
+- **Same module as the web app:** C++ port of `shared/module.js`, verified identical on ~13,000 random
   button/time snapshots (`tools/diff_watch.mjs`).
 - **Astronomy on-device** (Sun & Moon, Schlyter): moon position within ~3′, moon hour-angle times within ±11 s, new moon
   within ~7 min versus PyEphem (`make test`).
@@ -116,7 +127,7 @@ Full bill of materials, wiring and assembly: **[docs/BUILD.md](docs/BUILD.md)**.
 
 <p align="center"><img src="assets/face-arc.png" width="270" alt="Arc"> <img src="assets/face-desk.png" width="270" alt="Desk"> <img src="assets/face-noir.png" width="270" alt="Noir"></p>
 
-**Arc** — midnight-blue watch dial, dome sky over the sea with moon reflections.
+**Arc** — black watch dial, dome sky over the sea with moon reflections.
 **Desk** — ivory clock dial with an LCD seconds ring, night sky over hills and an observatory.
 **Noir** — black night face with an amber negative LCD.
 

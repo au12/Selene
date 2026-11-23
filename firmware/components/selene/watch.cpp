@@ -565,9 +565,11 @@ void Watch::segments(int64_t now, uint32_t rt, SegSet &o) {
   int ph = -1, hai = -1;
   bool suns = false;
   if (demo_) {
-    const int k = (int) ((rt - demo_start_) / 270);
-    ph = k % 9;
-    hai = k % 13;
+    // one tick = 1/8 s: the marker laps 24 steps (13 sky positions, nadir mark alone at step 18),
+    // the phase advances every second tick
+    const int k = (int) ((rt - demo_start_) / 125), lap = k % 24;
+    ph = (k >> 1) % 9;
+    hai = lap < 13 ? lap : lap == 18 ? 13 : -1;
   } else if (set_ == SET_TIME || set_ == SET_LOC) {
     ph = -1;
   } else if ((mode_ == M_MOON || mode_ == M_SUN) && sel_valid_) {
@@ -577,7 +579,7 @@ void Watch::segments(int64_t now, uint32_t rt, SegSet &o) {
     if (ready) {
       ph = day_data_(sel_day_).phase;
       if (mode_ == M_MOON) {
-        static const int HA[4] = {0, 6, 12, -1};
+        static const int HA[4] = {0, 6, 12, 13};
         hai = HA[moon_cycle_(rt)];
       }
     }
@@ -587,7 +589,9 @@ void Watch::segments(int64_t now, uint32_t rt, SegSet &o) {
   }
   if (ph >= 0)
     o.set(SEG_P + ph);
-  if (hai >= 0) {
+  if (hai == 13) {
+    o.set(SEG_HN);
+  } else if (hai >= 0) {
     o.set(SEG_H + hai);
     if (ph >= 0)
       o.set(SEG_R + ph);
@@ -596,6 +600,13 @@ void Watch::segments(int64_t now, uint32_t rt, SegSet &o) {
     o.set(SEG_SUNE);
     o.set(SEG_SUNW);
   }
+  // star field: redrawn every second, in every mode, from the ones digit of the running seconds
+  // (bit k = star k; table read off the real module)
+  static const uint32_t STARS[10] = {0x37f8f, 0x3367e, 0x2ee4d, 0x2a2bc, 0x27a8b,
+                                     0x2317a, 0x1e949, 0x185b8, 0x15d87, 0x11476};
+  for (uint32_t k = 0, m = STARS[p.s % 10]; k < 18; k++)
+    if ((m >> k) & 1u)
+      o.set(SEG_S + k);
 
   // ---------------- LCD
   if (set_ == SET_TIME) {

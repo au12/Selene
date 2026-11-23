@@ -60,9 +60,20 @@
     o.push('sune', 'sunw');
     for (let k = 0; k < 9; k++) o.push('r' + k);
     for (let k = 0; k < 60; k++) o.push('q' + k);
+    for (let k = 0; k < 18; k++) o.push('s' + k);
+    o.push('hn');
     return o;
   })();
   const MODES = ['TIME', 'MOON', 'SUN', 'ALM', 'ST'];
+  /**
+   * Star field: 18 star segments (s0 = leftmost … s17 = rightmost) are re-drawn on every second tick, in every
+   * mode, from the ones digit of the running seconds. Bit k of STARS[d] = star k lit while seconds % 10 === d.
+   * The table was read off the real module frame by frame; it repeats every ten seconds.
+   */
+  const STARS = [0x37f8f, 0x3367e, 0x2ee4d, 0x2a2bc, 0x27a8b, 0x2317a, 0x1e949, 0x185b8, 0x15d87, 0x11476];
+  /** Demonstration: one tick is 1/8 s. The hour-angle marker runs a 24-step lap (13 sky positions, then the
+   *  nadir mark alone at step 18); the phase advances every second tick. */
+  const DEMO_TICK = 125;
 
   function defaults() {
     let tz = 0;
@@ -332,10 +343,11 @@
 
       // ---------------- moon graph
       const cur = this.current(now);
+      // hai: 0..12 = marker position, 13 = nadir mark (moon at lower transit), -1 = nothing
       let ph = -1, hai = -1, suns = false, refl = true;
       if (this.demo) {
-        const k = Math.floor((rt - this.demo.start) / 270);
-        ph = k % 9; hai = k % 13;
+        const k = Math.floor((rt - this.demo.start) / DEMO_TICK), lap = k % 24;
+        ph = (k >> 1) % 9; hai = lap < 13 ? lap : lap === 18 ? 13 : -1;
       } else if (this.set && this.set.kind !== 'alm') {
         ph = -1;
       } else if ((this.mode === 'MOON' || this.mode === 'SUN') && this.sel) {
@@ -344,12 +356,14 @@
         if (ready) {
           const dd = this.dayData(this.sel.day);
           ph = dd.phase;
-          if (this.mode === 'MOON') hai = [0, 6, 12, -1][this.moonCycle()];
+          if (this.mode === 'MOON') hai = [0, 6, 12, 13][this.moonCycle()];
         }
       } else { ph = cur.phase; hai = cur.haIdx; }
       if (ph >= 0) on.push('p' + ph);
-      if (hai >= 0) { on.push('h' + hai); if (ph >= 0 && refl) on.push('r' + ph); }
+      if (hai === 13) on.push('hn');
+      else if (hai >= 0) { on.push('h' + hai); if (ph >= 0 && refl) on.push('r' + ph); }
       if (suns) on.push('sune', 'sunw');
+      for (let k = 0, m = STARS[p.s % 10]; k < 18; k++) if (m >> k & 1) on.push('s' + k);
 
       // ---------------- LCD
       if (this.set && this.set.kind === 'time') {
@@ -483,5 +497,5 @@
     status() { return { mode: this.set ? this.set.kind.toUpperCase() + '-SET' : this.mode, demo: !!this.demo, ring: !!this.ring, sw: this.sw.running }; }
   }
 
-  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, defaults };
+  return { Module, FONT, SEG7, DOW, MODES, SEGMENT_IDS, STARS, defaults };
 });

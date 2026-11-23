@@ -178,17 +178,37 @@
   }
 
   // deterministic star field
-  function stars(seed, n, inside, avoid) {
+  function stars(seed, n, inside, avoid, minD = 26) {
     let s = seed >>> 0;
     const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
     const out = [];
     let guard = 0;
-    while (out.length < n && guard++ < n * 60) {
+    while (out.length < n && guard++ < n * 600) {
       const x = rnd() * 1000, y = rnd() * 1000;
       if (!inside(x, y) || avoid(x, y)) continue;
-      if (out.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < 26 ** 2)) continue;
+      if (out.some((p) => (p.x - x) ** 2 + (p.y - y) ** 2 < minD ** 2)) continue;
       const m = rnd();
       out.push({ x, y, r: 0.9 + m * m * 2.2, o: 0.35 + rnd() * 0.6, spark: m > 0.9 });
+    }
+    return out;
+  }
+  // evenly spread points (best-candidate sampling) for the LCD star field
+  function spread(seed, n, ok) {
+    let s = seed >>> 0;
+    const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const out = [];
+    while (out.length < n) {
+      let best = null, bd = -1;
+      for (let c = 0; c < 500; c++) {
+        const x = rnd() * 1000, y = rnd() * 1000;
+        if (!ok(x, y)) continue;
+        let d = 1e9;
+        for (const p of out) d = Math.min(d, (p.x - x) ** 2 + (p.y - y) ** 2);
+        d *= 0.55 + 0.45 * rnd(); // a little irregularity so it does not look like a grid
+        if (d > bd) { bd = d; best = { x, y }; }
+      }
+      if (!best) throw new Error('star field: no room');
+      out.push(best);
     }
     return out;
   }
@@ -261,7 +281,22 @@
     }
     segs.push({ id: 'sune', d: sunD(G.sex, G.sy, G.sr), cls: 'mg' });
     segs.push({ id: 'sunw', d: sunD(G.swx, G.sy, G.sr), cls: 'mg' });
+    // nadir mark: moon at lower transit (hour angle 12 h)
+    const N = G.nadir;
+    segs.push({ id: 'hn', d: P([[N.x - N.s, N.y - N.s * 0.8], [N.x + N.s, N.y - N.s * 0.8], [N.x, N.y + N.s * 0.9]]), cls: 'mg' });
+    // star field: 18 LCD stars, s0 = leftmost … s17 = rightmost (module.js STARS drives them)
+    const avoidStar = (x, y) => G.starAvoid(x, y) || segs.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < (G.mr + 13) ** 2) ||
+      (x - N.x) ** 2 + (y - N.y) ** 2 < 30 ** 2;
+    const st = spread(G.starSeed, 18, (x, y) => G.starIn(x, y) && !avoidStar(x, y)).sort((a, b) => a.x - b.x);
+    st.forEach((p, k) => segs.push({ id: 's' + k, d: sparkD(p.x, p.y, G.starR * (0.78 + 0.5 * ((k * 7 + 3) % 5) / 4)), cls: 'st', cx: p.x, cy: p.y }));
     return segs;
+  }
+
+  /** A few faint printed specks behind the LCD stars, for depth. */
+  function specks(seed, n, inside, segs) {
+    const lit = segs.filter((q) => q.cx !== undefined);
+    return stars(seed, n, inside, (x, y) => lit.some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 20 ** 2), 22)
+      .map((p) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(0.7 + p.r * 0.28)}" opacity="${(0.12 + p.o * 0.22).toFixed(2)}"/>`).join('');
   }
 
   const segPaths = (segs) => segs.map((s) => `<path class="s ${s.cls}" data-s="${s.id}" d="${s.d}"/>`).join('');
@@ -269,18 +304,21 @@
   // ================================================================ FACE: ARC (wristwatch dial)
   function buildArc(opt = {}) {
     const C = { // palette
-      dial0: '#1b2b45', dial1: '#0a1322', ink: '#e7ecf3', silver: '#a9b6c8', gold: '#d9b86c',
+      dial0: '#1d1f23', dial1: '#08090a', ink: '#e9edf2', silver: '#a7afba', gold: '#d9b86c',
       lcd0: '#cfd4c3', lcd1: '#c1c6b4',
     };
     const W = { cx: 500, cy: 474, R: 290 };
     const G = { cx: 500, cy: W.cy, rx: 196, ry: 196, mr: 31, a0: 162, astep: 18,
       hr0: 238, hr1: 254, hw: 7.5, hrx: (r) => r, hry: (r) => r,
-      sex: 240, swx: 760, sy: W.cy, sr: 12.5 };
+      sex: 240, swx: 760, sy: W.cy, sr: 12.5,
+      nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starGap: 36, starR: 5.6,
+      starIn: (x, y) => (x - W.cx) ** 2 + (y - W.cy) ** 2 < 222 ** 2 && y < W.cy - 14,
+      starAvoid: () => false };
     const mg = moonGraph(G);
     // sea reflections under each moon slot
     for (let k = 0; k < 9; k++) {
       const x = mg[k].cx;
-      mg.push({ id: 'r' + k, cls: 'mg', d: rrect(x - 13, W.cy + 8, 26, 3.2, 1.6) + rrect(x - 8.5, W.cy + 15, 17, 3, 1.5) + rrect(x - 4.5, W.cy + 22, 9, 2.6, 1.3) });
+      mg.push({ id: 'r' + k, cls: 'mg', d: rrect(x - 13, W.cy + 6, 26, 3, 1.5) + rrect(x - 8.5, W.cy + 11.6, 17, 2.8, 1.4) + rrect(x - 4.5, W.cy + 17, 9, 2.4, 1.2) });
     }
     const L = { mx: 186, my: 548, mp: 9.6, md: 8.2, mg: 12,
       sx: 566, sy: 548, sw: 42, sh: 66, st: 8.6, sgap: 11, sdz: 26, g: 1.6, slant: 4,
@@ -294,8 +332,7 @@
       if (r > 228 && r < 284) return true;
       return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 44 ** 2);
     };
-    const st = stars(7, 46, inDome, avoid);
-    const starSvg = st.map((p) => p.spark ? `<path d="${sparkD(p.x, p.y, p.r * 3.1)}" opacity="${p.o.toFixed(2)}"/>` : `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r)}" opacity="${p.o.toFixed(2)}"/>`).join('');
+    const starSvg = specks(7, 26, (x, y) => inDome(x, y) && !avoid(x, y), mg);
     // dial sunburst
     let burst = '';
     for (let i = 0; i < 180; i++) {
@@ -327,7 +364,7 @@
     const svg = `
 <defs>
   <radialGradient id="arcDial" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
-  <linearGradient id="arcSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03060d"/><stop offset=".72" stop-color="#07101f"/><stop offset="1" stop-color="#10213b"/></linearGradient>
+  <linearGradient id="arcSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#010203"/><stop offset=".7" stop-color="#04070c"/><stop offset="1" stop-color="#0b1524"/></linearGradient>
   <linearGradient id="arcLcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.lcd0}"/><stop offset="1" stop-color="${C.lcd1}"/></linearGradient>
   <linearGradient id="arcGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
 </defs>
@@ -342,7 +379,7 @@ ${text('label', 'LUNAR ARC', 500, 160, 11.5, { align: 'middle', track: 0.42, att
 <g fill="#c7d3e3">${starSvg}</g>
 <path d="${haScale}" stroke="${C.silver}" stroke-opacity=".7" stroke-width="1.6"/>
 <path d="M${W.cx - 274} ${W.cy}A274 274 0 0 1 ${W.cx + 274} ${W.cy}" fill="none" stroke="${C.silver}" stroke-opacity=".28" stroke-width="1.2"/>
-<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z" fill="#07101e" opacity=".9"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}V${W.cy + 26}Q${W.cx + W.R} ${W.cy + 34} ${W.cx + W.R - 8} ${W.cy + 34}H${W.cx - W.R + 8}Q${W.cx - W.R} ${W.cy + 34} ${W.cx - W.R} ${W.cy + 26}Z" fill="#05080d" opacity=".92"/>
 <path d="${waves}" fill="none" stroke="#9fb3cf" stroke-opacity=".22" stroke-width="1.4"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/>
 ${text('label', 'E', W.cx - W.R + 12, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
@@ -362,6 +399,7 @@ ${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn(
 `;
     return { id: 'arc', name: 'Arc', svg, segs: mg.concat(lcd), palette: {
       lcdOn: '#161b18', lcdGhost: 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
+      stOn: '#e6eefb', stGhost: 'rgba(230,238,251,.022)',
       shadow: 'rgba(28,34,30,.32)', glow: 'rgba(255,214,120,.55)', negative: false,
       el: '#7fe7d2' }, lcdBox, kind: 'watch' };
   }
@@ -373,7 +411,10 @@ ${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn(
     const Wn = { cx: 500, cy: 452, rx: 268, ry: 214, bottom: 470 };
     const G = { cx: 500, cy: 440, rx: 192, ry: 150, mr: 26, a0: 162, astep: 18,
       hr0: 0, hr1: 0, hw: 0, hdot: 5.4, hrx: () => 236, hry: () => 186, hcy: 452,
-      sex: 270, swx: 730, sy: 452, sr: 11 };
+      sex: 270, swx: 730, sy: 452, sr: 11,
+      nadir: { x: 500, y: 459, s: 6 }, starSeed: 5, starGap: 33, starR: 5.2,
+      starIn: (x, y) => ((x - 500) / 224) ** 2 + ((y - 452) / 175) ** 2 < 1 && y < 420,
+      starAvoid: (x, y) => x > 622 && x < 686 && y > 380 };
     // hour-angle pips: use elliptical ring
     G.hr0 = 1; G.hr1 = 1;
     const mg = moonGraph(G);
@@ -403,8 +444,7 @@ ${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn(
       if (e > 0.92 && e < 1.08) return true;
       return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 38 ** 2);
     };
-    const st = stars(42, 40, inWin, avoid);
-    const starSvg = st.map((p) => p.spark ? `<path d="${sparkD(p.x, p.y, p.r * 3)}" opacity="${p.o.toFixed(2)}"/>` : `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r)}" opacity="${p.o.toFixed(2)}"/>`).join('');
+    const starSvg = specks(42, 24, (x, y) => inWin(x, y) && !avoid(x, y), mg);
     // hills + observatory silhouette
     const hills = `M${Wn.cx - Wn.rx} ${Wn.bottom}V442C300 428 352 424 400 434S470 450 520 440S612 418 660 422S740 436 ${Wn.cx + Wn.rx} 438V${Wn.bottom}Z`;
     const hills2 = `M${Wn.cx - Wn.rx} ${Wn.bottom}V456C320 448 380 452 440 458S560 452 620 454S720 458 ${Wn.cx + Wn.rx} 452V${Wn.bottom}Z`;
@@ -454,6 +494,7 @@ ${text('cond', 'QUARTZ', 500, 846, 10.5, { align: 'middle', track: 0.55, attrs: 
 `;
     return { id: 'desk', name: 'Desk', svg, segs: mg.concat(lcd, ring), palette: {
       lcdOn: '#1a1e1b', lcdGhost: 'rgba(26,30,27,.038)', mgOn: '#f4cf6c', mgGhost: 'rgba(244,207,108,.016)',
+      stOn: '#eef3fc', stGhost: 'rgba(238,243,252,.024)',
       shadow: 'rgba(30,34,30,.30)', glow: 'rgba(255,220,130,.5)', negative: false, el: '#8ef0d5' }, lcdBox, kind: 'clock' };
   }
 
@@ -461,7 +502,10 @@ ${text('cond', 'QUARTZ', 500, 846, 10.5, { align: 'middle', track: 0.55, attrs: 
   function buildNoir(opt = {}) {
     const W = { cx: 500, cy: 468, R: 300 };
     const G = { cx: 500, cy: W.cy, rx: 206, ry: 206, mr: 33, a0: 162, astep: 18,
-      hr0: 248, hr1: 266, hw: 8, hrx: (r) => r, hry: (r) => r, sex: 236, swx: 764, sy: W.cy, sr: 13 };
+      hr0: 248, hr1: 266, hw: 8, hrx: (r) => r, hry: (r) => r, sex: 236, swx: 764, sy: W.cy, sr: 13,
+      nadir: { x: 500, y: W.cy + 22, s: 6.5 }, starSeed: 31, starGap: 38, starR: 5.8,
+      starIn: (x, y) => (x - W.cx) ** 2 + (y - W.cy) ** 2 < 232 ** 2 && y < W.cy - 14,
+      starAvoid: () => false };
     const mg = moonGraph(G);
     const L = { mx: 182, my: 546, mp: 9.8, md: 8.4, mg: 12,
       sx: 562, sy: 546, sw: 43, sh: 67, st: 8.8, sgap: 11, sdz: 26, g: 1.7, slant: 0,
@@ -475,8 +519,7 @@ ${text('cond', 'QUARTZ', 500, 846, 10.5, { align: 'middle', track: 0.55, attrs: 
       if (r > 236 && r < 274) return true;
       return mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 46 ** 2);
     };
-    const st = stars(99, 34, inDome, avoid);
-    const starSvg = st.map((p) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(p.r * 0.85)}" opacity="${(p.o * 0.6).toFixed(2)}"/>`).join('');
+    const starSvg = specks(99, 20, (x, y) => inDome(x, y) && !avoid(x, y), mg);
     const domeD = `M${W.cx - W.R} ${W.cy}A${W.R} ${W.R} 0 0 1 ${W.cx + W.R} ${W.cy}Z`;
     let haScale = '';
     for (let k = 0; k <= 12; k++) {
@@ -506,6 +549,7 @@ ${text('label', 'MOON · SUN · ALARM', 500, 846, 12, { align: 'middle', track: 
 `;
     return { id: 'noir', name: 'Noir', svg, segs: mg.concat(lcd), palette: {
       lcdOn: '#ffb04a', lcdGhost: 'rgba(255,176,74,.028)', mgOn: '#ffbf5c', mgGhost: 'rgba(255,191,92,.012)',
+      stOn: '#ffd9a6', stGhost: 'rgba(255,217,166,.016)',
       shadow: 'rgba(0,0,0,0)', glow: 'rgba(255,160,60,.55)', negative: true, el: '#ffb04a' }, lcdBox, kind: 'clock' };
   }
 
@@ -519,8 +563,8 @@ ${text('label', 'MOON · SUN · ALARM', 500, 846, 12, { align: 'middle', track: 
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
 <style>
 .s{fill:${'var(--ghost)'}}
-.lcd{--ghost:${p.lcdGhost}} .mg{--ghost:${p.mgGhost}}
-.lcd.on{fill:${p.lcdOn}} .mg.on{fill:${p.mgOn}}
+.lcd{--ghost:${p.lcdGhost}} .mg{--ghost:${p.mgGhost}} .st{--ghost:${p.stGhost}}
+.lcd.on{fill:${p.lcdOn}} .mg.on{fill:${p.mgOn}} .st.on{fill:${p.stOn}}
 ${extraCss}
 </style>${F.svg}</svg>`;
   }
