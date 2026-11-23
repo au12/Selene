@@ -6,6 +6,7 @@ __pycache__/
 build/
 secrets.yaml
 firmware/tests/astro_host
+firmware/tests/gmw15_host
 firmware/tests/watch_host
 firmware/tests/render_host
 dist/sw.js

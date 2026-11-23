@@ -1,7 +1,7 @@
-/* Selene web simulator — UI shell. Uses SeleneAstro, SeleneFaces, SeleneModule, SeleneGlyphs. */
+/* Selene web simulator — UI shell. Uses SeleneAstro, SeleneGMW15, SeleneFaces, SeleneModule, SeleneGlyphs. */
 (function () {
   'use strict';
-  const A = window.SeleneAstro, F = window.SeleneFaces, MOD = window.SeleneModule;
+  const A = window.SeleneAstro, G = window.SeleneGMW15, F = window.SeleneFaces, MOD = window.SeleneModule;
   const $ = (s, r = document) => r.querySelector(s);
   const DAY = 86400000, HOUR = 3600000, MIN = 60000;
   const store = {
@@ -428,8 +428,84 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     const simulated = sim.speed !== 1 || Math.abs(now - Date.now()) > 3000 || S.userOffset !== 0;
     $('#simBadge').classList.toggle('hidden', !simulated);
     const latS = `${Math.abs(S.lat).toFixed(1)}°${S.lat >= 0 ? 'N' : 'S'}`, lonS = `${Math.abs(S.lon).toFixed(1)}°${S.lon >= 0 ? 'E' : 'W'}`;
-    const tz = S.tzMin, tzS = `GMT${tz < 0 ? '−' : '+'}${Math.floor(Math.abs(tz) / 60)}${Math.abs(tz) % 60 ? ':' + String(Math.abs(tz) % 60).padStart(2, '0') : ''}`;
-    $('#locInfo').textContent = `${latS} ${lonS} · ${tzS} · watch shows ${fmtDate(t)}`;
+    $('#locInfo').textContent = `${latS} ${lonS} · ${gmtStr(S.tzMin)} · watch shows ${fmtDate(t)}`;
+    updateCompare(now);
+  }
+  const gmtStr = (tz) => `GMT${tz < 0 ? '−' : '+'}${Math.floor(Math.abs(tz) / 60)}${Math.abs(tz) % 60 ? ':' + String(Math.abs(tz) % 60).padStart(2, '0') : ''}`;
+  const placeStr = (lat, lon) => `${Math.abs(lat)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon)}°${lon >= 0 ? 'E' : 'W'}`;
+  const fmtDay = (dayLocal) => new Date(dayLocal).toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+
+  // ------------------------------------------------------------------ GMW-15 logic vs modern, for the day on the watch
+  /** The date the watch is showing: the one dialled in moon time / sunrise-sunset mode, else today. */
+  const dayShown = (now) => ((mod.mode === 'MOON' || mod.mode === 'SUN') && mod.sel ? mod.sel.day : mod.todayLocal(now));
+  const CMP_ROWS = [['Moon age', 'age'], ['Sunrise', 'rise'], ['Sunset', 'set'], ['Moon 18h · −1', 0], ['Moon 0h · −2', 1], ['Moon 6h · −3', 2], ['Moon 12h · −4', 3]];
+  const pick = (dd, f) => (f === 'age' ? dd.age : f === 'rise' ? dd.sun.rise : f === 'set' ? dd.sun.set : dd.ev[f]);
+  const signed = (x, unit, digits = 0) => (Math.abs(x) < 0.5 * 10 ** -digits ? '0' : `${x > 0 ? '+' : '−'}${Math.abs(x).toFixed(digits)} ${unit}`);
+  function updateCompare(now) {
+    const S = mod.s, day = dayShown(now), on = S.engine;
+    const g = mod.dayData(day, 'gmw15'), m = mod.dayData(day, 'modern');
+    const cls = (e) => (on === e ? ' on' : '');
+    let html = `<span class="h"></span><span class="h v${cls('gmw15')}">GMW-15</span><span class="h v${cls('modern')}">Modern</span><span class="h d">Δ</span>`;
+    for (const [label, f] of CMP_ROWS) {
+      const a = pick(g, f), b = pick(m, f);
+      let va, vb, d = '—', big = false;
+      if (f === 'age') {
+        va = a.toFixed(2); vb = b.toFixed(2);
+        let x = a - b; if (x > G.SYNODIC / 2) x -= G.SYNODIC; else if (x < -G.SYNODIC / 2) x += G.SYNODIC;
+        d = signed(x, 'd', 1); big = Math.abs(x) >= 0.5;
+      } else {
+        va = fmtT(a); vb = fmtT(b);
+        // difference of the minutes shown (times are truncated to the minute here)
+        if (a !== null && b !== null && Math.abs(a - b) < 12 * HOUR) { const x = Math.floor(a / MIN) - Math.floor(b / MIN); d = signed(x, 'm'); big = Math.abs(x) >= 5; }
+      }
+      html += `<span class="k">${label}</span><span class="v${cls('gmw15')}">${va}</span><span class="v${cls('modern')}">${vb}</span><span class="d${big ? ' big' : ''}">${d}</span>`;
+    }
+    $('#cmp').innerHTML = html;
+    $('#cmpDay').textContent = fmtDay(day);
+    $('#cmpFoot').textContent = `The date on the watch. GMW-15 logic uses ${placeStr(G.wholeDeg(S.lat), G.wholeDeg(S.lon))}, `
+      + 'whole degrees as the watch stores them. Exact times here; the watch rounds to 5 minutes.';
+    updateStandIn(day);
+  }
+
+  // ------------------------------------------------------------------ the real watch outside its 1985–2029 calendar
+  // Run it a fixed number of days off the real date. These offsets line the Moon's phase and the season back up best
+  // (Greenville, GMW-15 logic vs the real sky); the first one that lands inside the calendar is used:
+  // 6,940 d = 19 y (Metonic cycle) to 2048, 9,863 d = 27 y + 1–2 d to 2056, 31,775 d = 87 y from 2072,
+  // 16,803 d = 46 y + 2 d in between.
+  const WATCH_FIRST = Date.UTC(1985, 0, 1), WATCH_LAST = Date.UTC(2029, 11, 31);
+  const STAND_INS = [[6940, '19 years'], [9863, '27 years and a day or two'], [31775, '87 years'], [16803, '46 years and 2 days']];
+  /** Date to set on the real watch for local date `day`: null inside its calendar, undefined if nothing fits. */
+  function standIn(day) {
+    if (day >= WATCH_FIRST && day <= WATCH_LAST) return null;
+    const dir = day > WATCH_LAST ? -1 : 1;
+    for (const [n, label] of STAND_INS) {
+      const d = day + dir * n * DAY;
+      if (d >= WATCH_FIRST && d <= WATCH_LAST) return { day: d, n, label, dir, until: WATCH_LAST + n * DAY };
+    }
+    return undefined;
+  }
+  const fmtLong = (day) => new Date(day).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+  let lastStandIn = '';
+  function updateStandIn(day) {
+    const si = standIn(day), key = day + '|' + (si ? si.day : si);
+    if (key === lastStandIn) return;
+    lastStandIn = key;
+    let html;
+    if (si === null) {
+      html = '<div class="si"><span>Your GMW-15</span><b>set this date as is</b></div>'
+        + '<div class="foot">This date is inside the real watch\'s 1985–2029 calendar. From 2030 on, this shows the stand-in date and weekday to set instead.</div>';
+    } else if (si === undefined) {
+      html = '<div class="si"><span>Your GMW-15</span><b>no good stand-in</b></div><div class="foot">No date in its 1985–2029 calendar lines up with this one.</div>';
+    } else {
+      const n = si.n.toLocaleString('en-US');
+      html = `<div class="si"><span>Your GMW-15: set the date to</span><b>${fmtLong(si.day)}</b></div>`
+        + `<div class="si"><span>then the weekday to</span><b class="wd">${MOD.DOW[new Date(day).getUTCDay()]}</b></div>`
+        + `<div class="foot">Its calendar stops at 2029, so run it ${n} days ${si.dir < 0 ? 'behind' : 'ahead'} (${si.label}): the best `
+        + 'match of the moon\'s phase and the season. The weekday sets on its own without changing the date. Keep the real time, '
+        + 'then leave the date running, even when it reads a day off around leap years.'
+        + (si.dir < 0 ? ` Good until ${fmtLong(si.until)}.` : '') + '</div>';
+    }
+    $('#standin').innerHTML = html;
   }
 
   // ------------------------------------------------------------------ panel controls
@@ -443,14 +519,14 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   document.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
     const j = +b.dataset.jump;
     if (j === 0) { rebase(Date.now(), 1); markSpeed(); } else rebase(nowSim() + j);
-    frame();
+    lastPanel = -1e9; frame();
   }));
   $('#dateJump').addEventListener('change', (e) => {
     const v = e.target.value; if (!v) return;
     const [y, m, d] = v.split('-').map(Number);
     const loc = mod.local(nowSim()), tod = ((loc % DAY) + DAY) % DAY;
     rebase(Date.UTC(y, m - 1, d) + tod - mod.s.tzMin * MIN - mod.s.userOffset);
-    frame();
+    lastPanel = -1e9; frame();
   });
 
   // cities: [name, lat, lon, IANA zone]
@@ -509,6 +585,148 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   });
   $('#lcdTest').addEventListener('click', () => { lcdTestUntil = performance.now() + 2500; frame(); });
   $('#demo').addEventListener('click', () => { mod.set = null; mod.mode = 'TIME'; mod.sel = null; mod.demo = { start: performance.now() }; frame(); });
+
+  // astronomy engine
+  const ENGINE_SUB = { gmw15: 'Casio’s own method', modern: 'accurate' };
+  const ENGINE_NOTE = {
+    gmw15: 'Casio’s low-precision method from its 1989 patent: whole-degree location, moon age at local noon, the hour angle recalculated on the hour, moon times interpolated over the lunar day.',
+    modern: 'Arc-minute Sun and Moon positions; every event time solved to the second.',
+  };
+  $('#engineSeg').innerHTML = MOD.ENGINES.map(([id, label]) => `<button data-engine="${id}">${label}<small>${ENGINE_SUB[id]}</small></button>`).join('');
+  function markEngine() {
+    document.querySelectorAll('#engineSeg button').forEach((b) => b.classList.toggle('on', b.dataset.engine === mod.s.engine));
+    $('#engineNote').textContent = ENGINE_NOTE[mod.s.engine] || '';
+  }
+  $('#engineSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || b.dataset.engine === mod.s.engine) return;
+    mod.s.engine = b.dataset.engine; mod._cur.key = null; mod.save(); markEngine(); lastPanel = -1e9; frame();
+  });
+  markEngine();
+
+  // ------------------------------------------------------------------ watch log: readings from a real watch vs GMW-15 logic
+  const LOG_FIELDS = ['age', 'rise', 'set', 0, 1, 2, 3];
+  const LOG_NAME = { age: 'Age', rise: 'Sunrise', set: 'Sunset', 0: 'Moon −1', 1: 'Moon −2', 2: 'Moon −3', 3: 'Moon −4' };
+  const LOG_CSV = { age: 'moon_age', rise: 'sunrise', set: 'sunset', 0: 'moon_ha18', 1: 'moon_ha0', 2: 'moon_ha6', 3: 'moon_ha12' };
+  const inputOf = (f) => $('#lg_' + (typeof f === 'number' ? 'm' + f : f));
+  let wlog = store.get('watchlog', []);
+  if (!Array.isArray(wlog)) wlog = [];
+  const saveLog = () => store.set('watchlog', wlog);
+  const dayOf = (iso) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const isoOf = (dayLocal) => new Date(dayLocal).toISOString().slice(0, 10);
+  const p2 = (n) => String(n).padStart(2, '0');
+  const hm = (min) => (min === 'none' ? '-:--' : `${Math.floor(min / 60)}:${p2(min % 60)}`);
+  /** As the watch shows it: 12 h with a/p unless the watch is set to 24 h. */
+  const hmw = (min) => { if (min === 'none' || mod.s.h24) return hm(min); const h = Math.floor(min / 60); return `${h % 12 || 12}:${p2(min % 60)}${h < 12 ? 'a' : 'p'}`; };
+  const hms = (min) => { if (min === null) return ''; const s = Math.round((((min % 1440) + 1440) % 1440) * 60); return `${p2(Math.floor(s / 3600) % 24)}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}`; };
+  const wrapMin = (x) => ((x + 720) % 1440 + 1440) % 1440 - 720;
+  /** What GMW-15 logic would put on the LCD for a log entry (times as minutes after local midnight, 'none' = -:--),
+   *  plus the exact GMW-15 and modern values. */
+  function modelFor(e) {
+    const day = dayOf(e.date), loc = { lat: e.lat, lon: e.lon, tzMin: e.tzMin };
+    const g = mod.dayData(day, 'gmw15', loc), m = mod.dayData(day, 'modern', loc);
+    const disp = (t) => (t === null ? 'none' : ((Math.round((A.round5(t) + e.tzMin * MIN - day) / MIN) % 1440) + 1440) % 1440);
+    const exact = (t) => (t === null ? null : (t + e.tzMin * MIN - day) / MIN);
+    const out = { age: { disp: Math.floor(g.age * 10 + 1e-6) / 10, exact: g.age, modern: m.age } };
+    for (const f of LOG_FIELDS.slice(1)) { const a = pick(g, f), b = pick(m, f); out[f] = { disp: disp(a), exact: exact(a), modern: exact(b) }; }
+    return out;
+  }
+  /** Parse "7:10", "7:10a", "5:20 pm", "17:20", "1720"; "-" / "-:--" = no event; blank = not read (null).
+   *  Without a/p, a 1–12 hour is put in whichever half of the day is nearer the model's value. */
+  function parseTime(str, model) {
+    const s = str.trim().toLowerCase();
+    if (!s) return null;
+    if (/^-+(:-+)?$/.test(s)) return 'none';
+    const m = s.match(/^(\d{1,2})[:.]?(\d{2})\s*([ap])?\.?(m\.?)?$/);
+    if (!m) return undefined;
+    let h = +m[1]; const mi = +m[2];
+    if (h > 23 || mi > 59) return undefined;
+    if (m[3]) { if (h < 1 || h > 12) return undefined; return (h % 12 + (m[3] === 'p' ? 12 : 0)) * 60 + mi; }
+    let v = h * 60 + mi;
+    if (h >= 1 && h <= 12 && typeof model === 'number' && Math.abs(wrapMin(v + 720 - model)) < Math.abs(wrapMin(v - model))) v = (v + 720) % 1440;
+    return v;
+  }
+  let msgTimer = 0;
+  const say = (t) => { $('#lgMsg').textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('#lgMsg').textContent = ''; }, 3500); };
+  function renderLog() {
+    $('#logCount').textContent = wlog.length;
+    let total = 0, hit = 0;
+    const items = wlog.map((e, i) => {
+      const md = modelFor(e), miss = [];
+      let n = 0, ok = 0;
+      for (const f of LOG_FIELDS) {
+        const v = e.v[f];
+        if (v === null || v === undefined) continue;
+        n++;
+        const d = md[f].disp;
+        if (f === 'age') { if (Math.abs(v - d) < 0.05) ok++; else miss.push(`${LOG_NAME[f]} ${v.toFixed(1)} vs ${d.toFixed(1)}`); continue; }
+        if (v === d) { ok++; continue; }
+        const delta = v !== 'none' && d !== 'none' ? ` (${signed(wrapMin(v - d), 'm')})` : '';
+        miss.push(`${LOG_NAME[f]} ${hmw(v)} vs ${hmw(d)}${delta}`);
+      }
+      total += n; hit += ok;
+      return `<div class="logitem"><div class="t"><b>${e.date}</b><span>${placeStr(e.lat, e.lon)} · ${gmtStr(e.tzMin)}</span>`
+        + `<span class="${ok === n ? 'ok' : 'miss'}">${ok}/${n}</span><button data-del="${i}" aria-label="Delete reading">×</button></div>`
+        + (miss.length ? `<div class="miss">${miss.join(' · ')}</div>` : '') + '</div>';
+    }).reverse();
+    $('#lgList').innerHTML = (wlog.length ? `<div class="foot">${hit} of ${total} readings match GMW-15 logic exactly (watch vs model shown for the rest).</div>` : '') + items.join('');
+  }
+  const logBox = $('#logBox');
+  logBox.addEventListener('toggle', () => { if (logBox.open && !$('#lg_date').value) $('#lg_date').value = isoOf(dayShown(nowSim())); });
+  $('#lgFill').addEventListener('click', () => {
+    const date = $('#lg_date').value || isoOf(dayShown(nowSim()));
+    $('#lg_date').value = date;
+    const md = modelFor({ date, lat: G.wholeDeg(mod.s.lat), lon: G.wholeDeg(mod.s.lon), tzMin: mod.s.tzMin });
+    inputOf('age').value = md.age.disp.toFixed(1);
+    for (const f of LOG_FIELDS.slice(1)) inputOf(f).value = md[f].disp === 'none' ? '-' : hmw(md[f].disp);
+    say('Filled with what GMW-15 logic shows — change what your watch shows differently.');
+  });
+  $('#lgAdd').addEventListener('click', () => {
+    const date = $('#lg_date').value;
+    if (!date) return say('Pick a date first.');
+    const e = { date, tzMin: mod.s.tzMin, lat: G.wholeDeg(mod.s.lat), lon: G.wholeDeg(mod.s.lon), v: {}, at: Date.now() };
+    const md = modelFor(e);
+    let any = false;
+    for (const f of LOG_FIELDS) {
+      const raw = inputOf(f).value;
+      let v;
+      if (f === 'age') { v = raw.trim() === '' ? null : Number(raw.trim().replace(',', '.')); if (v !== null && !(v >= 0 && v < 30)) v = undefined; }
+      else v = parseTime(raw, md[f].disp);
+      if (v === undefined) { inputOf(f).focus(); return say(`Couldn't read ${LOG_NAME[f]}.`); }
+      e.v[f] = v;
+      if (v !== null) any = true;
+    }
+    if (!any) return say('Enter at least one reading.');
+    wlog.push(e); saveLog(); renderLog();
+    for (const f of LOG_FIELDS) inputOf(f).value = '';
+    say('Saved.');
+  });
+  $('#lgList').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-del]'); if (!b) return;
+    wlog.splice(+b.dataset.del, 1); saveLog(); renderLog();
+  });
+  let clearArmed = 0;
+  $('#lgClear').addEventListener('click', () => {
+    if (!wlog.length) return;
+    if (performance.now() - clearArmed > 3000) { clearArmed = performance.now(); return say('Tap “Clear log” again to delete every reading.'); }
+    wlog = []; saveLog(); renderLog(); clearArmed = 0; say('Log cleared.');
+  });
+  $('#lgCsv').addEventListener('click', () => {
+    if (!wlog.length) return say('Nothing logged yet.');
+    const rows = [['date', 'gmt_offset_min', 'lat', 'lon', 'field', 'watch', 'gmw15_display', 'gmw15_exact', 'modern_exact', 'match']];
+    for (const e of wlog) {
+      const md = modelFor(e);
+      for (const f of LOG_FIELDS) {
+        const v = e.v[f], r = md[f];
+        if (v === null || v === undefined) continue;
+        if (f === 'age') rows.push([e.date, e.tzMin, e.lat, e.lon, LOG_CSV[f], v.toFixed(1), r.disp.toFixed(1), r.exact.toFixed(3), r.modern.toFixed(3), Math.abs(v - r.disp) < 0.05 ? 1 : 0]);
+        else rows.push([e.date, e.tzMin, e.lat, e.lon, LOG_CSV[f], hm(v), hm(r.disp), hms(r.exact), hms(r.modern), v === r.disp ? 1 : 0]);
+      }
+    }
+    const url = URL.createObjectURL(new Blob([rows.map((r) => r.join(',')).join('\n') + '\n'], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'selene-watch-log.csv';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  renderLog();
 
   // logo
   $('#logo').innerHTML = `<svg viewBox="0 0 272 40">${F.text('brand', 'SELENE', 0, 34, 30, { track: 0.18, attrs: 'fill="#e8edf5"' })}</svg>`;

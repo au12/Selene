@@ -2,7 +2,8 @@
 
 <h1 align="center">Selene</h1>
 <p align="center"><b>A lunar LCD watch you can wear in a browser — and a round ESPHome alarm clock that runs the same module.</b><br>
-Moon phase arc · moon hour angle · moon times · sunrise/sunset for any date · alarm · hourly chime · 1/100 s stopwatch · demo</p>
+Moon phase arc · moon hour angle · moon times · sunrise/sunset for any date · alarm · hourly chime · 1/100 s stopwatch · demo<br>
+Astronomy from Casio's own 1989 method (“GMW-15 logic”) or modern, arc-minute positions</p>
 
 <p align="center"><img src="assets/screenshots/desktop.png" alt="Selene web simulator (desktop)" width="860"></p>
 
@@ -12,7 +13,7 @@ with original faces drawn for it. The same face artwork and the same module logi
 
 | | |
 |---|---|
-| **Web simulator** (`web/`, `dist/`) | Single 185 KB offline page. Three models (Arc wristwatch, Desk clock, Noir night clock) under a domed crystal, real buttons, WebAudio piezo beeps, time machine, city presets, live sky panel. Ships as a Docker image for Unraid. |
+| **Web simulator** (`web/`, `dist/`) | Single 210 KB offline page. Three models (Arc wristwatch, Desk clock, Noir night clock) under a domed crystal, real buttons, WebAudio piezo beeps, time machine, city presets, live sky panel, GMW-15 logic vs modern comparison and a log for readings from a real watch. Ships as a Docker image for Unraid. |
 | **ESPHome clock** (`firmware/`, `enclosure/`) | Waveshare ESP32-P4 4" round 720×720 touch panel in a 3D-printed drum. Faces switch live (swipe or Home Assistant), physical SET/MODE/REV/FWD + LIGHT/SNOOZE buttons, speaker, auto-dimming, and moon/sun data published to Home Assistant. |
 
 ---
@@ -46,6 +47,64 @@ marker lapping 24 steps while the phase advances every second tick, timekeeping 
 **The crystal is domed.** The watch and clocks are drawn as stacked layers at different depths: move the pointer
 (or tilt a phone that reports orientation) and the reflections slide over the dial while the dial shifts under the
 bezel. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
+
+### Astronomy: GMW-15 logic or modern
+
+*Settings → Astronomy* chooses what the watch computes.
+
+- **Modern** (default): Sun and Moon positions to a few arc-minutes (Schlyter), every event time solved to the second,
+  moon age counted from the last true new moon.
+- **GMW-15 logic**: Casio's own low-precision method, transcribed from its patent family
+  [EP 0 400 542 B1](https://data.epo.org/publication-server/rest/v1.2/patents/EP0400542NWB1/document.pdf) /
+  US 5,208,790 *Astronomical data indicating device* (Hiroshi Sato, Casio Hamura R&D Center, filed May 1989). The
+  patent's watch shows the GMW-15's data set (hour angle on a segment strip marked 0/6/12/18, phase graph, moon age,
+  sunrise/sunset from a GMT offset and latitude/longitude). It came three years after the GMW-15 (module 832, 1986),
+  so this is Casio's documented method from the same lineage, not a ROM dump. What it does:
+  - one day count from 1900, then a **seven-term series for the Moon's right ascension written directly in hours**
+    (the ecliptic-to-equator conversion is folded in as a term at twice the mean longitude);
+  - the Moon's Greenwich hour angle at 0h UT today and tomorrow gives the **lunar day**; every other moon time is
+    linear interpolation, and the hour angle is recalculated **on the hour**. Moon times are hour-angle crossings,
+    so the Moon needs no declination and no latitude;
+  - **moon age** from the Moon–Sun elongation over a flat 29.53 days, for local noon;
+  - the Sun from the day of the year: a four-term equation of time, a six-term declination series (its terms match
+    Y. Kubo's 1980 Japan Hydrographic Department series for calculator users, valid 1970–2030) and the arccos
+    half-day arc with the patent's horizon constant;
+  - the location in **whole degrees**, as the watch stores it.
+
+  Where the patent's OCR text is garbled the value is reconstructed (the sidereal-time epoch term, two rounded rates),
+  and the instant each daily value belongs to is an interpretation; both are marked `RECON` / `CHOICE` in
+  [`shared/gmw15.js`](shared/gmw15.js). Against PyEphem over the watch's 1986–2029 calendar (`make test`):
+
+  | | 95 % of days within | worst |
+  |---|---|---|
+  | Sunrise / sunset (latitude ≤ 52°) | 1.8 min | 2.7 min |
+  | Moon hour-angle times | 3.4 min | 6.1 min |
+  | Moon age | 0.8 day | 0.9 day |
+
+<p align="center"><img src="assets/screenshots/gmw15-compare.png" width="343" alt="GMW-15 logic vs modern for the date on the watch, with the stand-in date for the real watch"></p>
+
+The **GMW-15 vs modern** card shows both engines side by side for the date on the watch (today, or the date dialled in
+moon time / sunrise-sunset mode), to the minute. The **Watch log** card is for checking the method against a real
+GMW-15: set the watch and Selene to the same GMT offset and whole-degree location, dial a date on the watch and type
+what it shows. Each reading is matched against what GMW-15 logic would put on the LCD (5-minute times, 0.1-day age);
+*Export CSV* writes every reading with the GMW-15 display value and the exact GMW-15 and modern values.
+
+**Past 2029 on the real watch.** The GMW-15's calendar ends in 2029, so the card also shows the stand-in date to set
+and the weekday to go with it. The watch then runs a fixed number of days behind the real date, chosen to line the
+moon's phase and the season back up: **6,940 days** (19 years, the Metonic cycle) through 2048, then 9,863 days (27 years
+and a day or two) through 2056, 16,803 days (46 years and 2 days) until the end of 2071, and 31,775 days (87 years) after
+that. The card works this out for whatever date the watch shows, so the same line also tells you which date to dial on
+the real watch to look up a day after 2029.
+The exact day count matters: one day either way roughly doubles the moon-time error.
+
+- **Weekday:** the GMW-15 sets its weekday independently of the date (Selene's set mode has the same step), so set the
+  real weekday after the stand-in date.
+- **Leave the date running:** keep the real time and don't correct the date afterwards. Around leap years it reads a
+  day off from the real date, which keeps the day count exact.
+- **What to expect** (Greenville, real dates 2030–2048, 6,940 days behind): sunrise/sunset shown right on 83 % of days
+  (85 % in the watch's own years), phase icon wrong on 13 % (10 %), moon times off about 16 minutes typically and
+  38 minutes on the worst 5 % of days (1 and 3 minutes in its own years). The moon's phase and season line up again,
+  but its place on its elliptical orbit doesn't, so the moon times can't get closer than that.
 
 ### Run it
 
@@ -91,16 +150,18 @@ like a printed dial and less like a screen.
 - **Efficient rendering:** faces are pre-rendered at 720 px (dithered RGB565, LZ4, ~170 KB per face in flash) and
   decoded into PSRAM. Each second only changed segments are recomposited and pushed, typically ~20k pixels
   (about 4 % of the panel, stars included). Full-frame vs incremental output is verified pixel-identical on the host.
-- **Same module as the web app:** C++ port of `shared/module.js`, verified identical on ~13,000 random
-  button/time snapshots (`tools/diff_watch.mjs`).
+- **Same module as the web app:** C++ port of `shared/module.js`, verified identical on ~14,000 random
+  button/time snapshots in both astronomy engines (`tools/diff_watch.mjs`).
 - **Astronomy on-device** (Sun & Moon, Schlyter): moon position within ~3′, moon hour-angle times within ±11 s, new moon
-  within ~7 min versus PyEphem (`make test`).
+  within ~7 min versus PyEphem (`make test`). **GMW-15 logic** (`gmw15.cpp`) is the same code as the web app's, checked
+  against the JS and an independent Python transcription of the patent; choose it with the *Astronomy* select.
 - **Network time** (Home Assistant + SNTP, DST-aware). On the clock, **SET** goes straight to the location setup
   (GMT shown read-only · LO · LA with REV/FWD), since time never needs manual setting.
 - **Touch:** tap = light/snooze, horizontal swipe = next/previous face.
-- **Home Assistant:** face select, alarm switch + hour/minute, hourly chime, 24 h, latitude/longitude, day/night
-  brightness + auto-dim at civil dusk, Demo / Stop alarm / Next face buttons, *Alarm ringing*, moon age, illumination,
-  moon & sun elevation, moon phase, today's sunrise/sunset/moonrise/moonset.
+- **Home Assistant:** face select, astronomy select (Modern / GMW-15 logic, for the face), alarm switch + hour/minute,
+  hourly chime, 24 h, latitude/longitude, day/night brightness + auto-dim at civil dusk, Demo / Stop alarm / Next face
+  buttons, *Alarm ringing*, moon age, illumination, moon & sun elevation, moon phase, today's
+  sunrise/sunset/moonrise/moonset (the sensors always use modern astronomy).
 
 ```bash
 cd firmware
@@ -148,7 +209,7 @@ The web app picks it up automatically on `make web`.
 ## Project layout
 
 ```
-shared/       astro.js · module.js · faces.js · glyphs.js   (single source of truth for web + firmware)
+shared/       astro.js · gmw15.js · module.js · faces.js · glyphs.js   (single source of truth for web + firmware)
 web/          app.js · app.css · index.src.html · build.mjs → dist/index.html
 firmware/     selene-clock.yaml · components/selene/ (astro, watch, renderer, face assets) · tests/
 enclosure/    selene_enclosure.py → out/*.step|stl|3mf
@@ -162,7 +223,7 @@ unraid/       selene.xml          .github/workflows/docker.yml          Dockerfi
 ```bash
 make web        # bundle dist/ (add --pwa variant via the Dockerfile)
 make faces      # regenerate firmware face headers (needs Chrome/Chromium + Playwright, Python numpy/pillow/lz4)
-make test       # astronomy vs PyEphem, C++ vs JS, renderer equivalence
+make test       # astronomy vs PyEphem, GMW-15 logic (JS · C++ · Python), C++ vs JS, renderer equivalence
 make enclosure  # STEP/STL/3MF (needs cadquery)
 ```
 

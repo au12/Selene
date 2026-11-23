@@ -11,11 +11,15 @@ faces:          ## regenerate firmware face assets from shared/faces.js
 	node tools/render_faces.mjs 720 build/faces
 	$(PY) tools/pack_faces.py build/faces firmware/components/selene --preview build/preview
 
-test:           ## astronomy vs PyEphem, C++ vs JS (astro + watch logic), renderer equivalence
+ASTRO_SRC = firmware/components/selene/astro.cpp firmware/components/selene/gmw15.cpp
+
+test:           ## astronomy vs PyEphem, GMW-15 logic (JS · C++ · Python), C++ vs JS watch logic, renderer equivalence
 	node tools/astro_cases.mjs | $(PY) tools/check_astro.py
-	g++ -O2 -std=c++17 -o firmware/tests/astro_host firmware/tests/astro_host.cpp firmware/components/selene/astro.cpp
-	g++ -O2 -std=c++17 -o firmware/tests/watch_host firmware/tests/watch_host.cpp firmware/components/selene/watch.cpp firmware/components/selene/astro.cpp
-	g++ -O2 -std=c++17 -o firmware/tests/render_host firmware/tests/render_host.cpp firmware/components/selene/renderer.cpp firmware/components/selene/watch.cpp firmware/components/selene/astro.cpp
+	g++ -O2 -std=c++17 -o firmware/tests/astro_host firmware/tests/astro_host.cpp $(ASTRO_SRC)
+	g++ -O2 -std=c++17 -o firmware/tests/gmw15_host firmware/tests/gmw15_host.cpp $(ASTRO_SRC)
+	g++ -O2 -std=c++17 -o firmware/tests/watch_host firmware/tests/watch_host.cpp firmware/components/selene/watch.cpp $(ASTRO_SRC)
+	g++ -O2 -std=c++17 -o firmware/tests/render_host firmware/tests/render_host.cpp firmware/components/selene/renderer.cpp firmware/components/selene/watch.cpp $(ASTRO_SRC)
+	node tools/gmw15_cases.mjs | $(PY) tools/check_gmw15.py
 	node tools/diff_watch.mjs 1
 	cd firmware/tests && ./render_host
 
