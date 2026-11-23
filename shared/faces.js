@@ -311,16 +311,16 @@
   // ================================================================ FACE: ARC (wristwatch dial)
   function buildArc(opt = {}) {
     const C = { // palette
-      dial0: '#1d1f23', dial1: '#08090a', ink: '#e9edf2', silver: '#a7afba', gold: '#d9b86c',
+      dial0: '#1d1f23', dial1: '#08090a', ink: '#e9edf2', silver: '#a7afba', gold: '#d9b86c', yellow: '#e9c23a', blue: '#6aa6f0',
       lcd0: '#cfd4c3', lcd1: '#c1c6b4',
     };
     // moon panel: as wide as the time display below it, with a low arched top
-    const W = { cx: 500, cy: 474, R: 350, top: 226 };
+    const W = { cx: 500, cy: 474, R: 350, top: 190 };
     // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
     const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
-    const T = { rx: 208, ry: 118, cy: W.cy - 8 }; // hour-angle track
-    const G = { cx: 500, cy: W.cy, rx: 286, ry: 198, mr: 29, a0: 162, astep: 18,
+    const T = { rx: 208, ry: 136, cy: W.cy - 8 }; // hour-angle track
+    const G = { cx: 500, cy: W.cy, rx: 286, ry: 226, mr: 29, a0: 162, astep: 18,
       hr0: 1, hr1: 1, hw: 0, hdot: 6.2, hrx: () => T.rx, hry: () => T.ry, hcy: T.cy,
       sex: 186, swx: 814, sy: W.cy, sr: 12.5,
       nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starR: 5.6,
@@ -369,7 +369,7 @@
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
     const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
     const btn = (label, ang, upper) => arcText('label', label, 500, 500, 436, ang, 14, upper, { track: 0.16, attrs: `fill="${C.silver}"` }) +
-      `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${C.gold}"/>`;
+      `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${opt.classic ? C.blue : C.gold}"/>`;
     const svg = `
 <defs>
   <radialGradient id="arcDial" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
@@ -383,8 +383,12 @@
 <path d="${ticks}" stroke="${C.silver}" stroke-opacity=".55" stroke-width="1.8"/>
 <path d="${ticks5}" stroke="${C.ink}" stroke-opacity=".85" stroke-width="3.6"/>
 <circle cx="500" cy="500" r="480" fill="none" stroke="${C.silver}" stroke-opacity=".35" stroke-width="1.5"/>
-${text('brand', 'SELENE', 500, 128, 29, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` })}
-${text('label', 'LUNAR ARC', 500, 160, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
+${opt.classic
+    // classic print: heavy sans name over a gold serif line, in the manner of an early-'90s digital dial
+    ? text('labelB', 'SELENE', 500, 120, 27, { align: 'middle', track: 0.03, attrs: `fill="${C.ink}"` }) +
+      `<g transform="translate(500 0) skewX(-9) translate(-500 0)">${text('serif', 'LUNAR ARC', 500 + 158 * 0.158, 158, 17, { align: 'middle', track: 0.07, attrs: `fill="${C.yellow}"` })}</g>`
+    : text('brand', 'SELENE', 500, 118, 29, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` }) +
+      text('label', 'LUNAR ARC', 500, 150, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
 <path d="${domeD}" fill="url(#arcSky)"/>
 <g fill="#c7d3e3">${starSvg}</g>
 <path d="${haScale}" fill="${C.silver}" opacity=".55"/>
@@ -402,12 +406,19 @@ ${text('label', 'W', W.cx + W.R - 46, W.cy + 27, 10, { align: 'end', attrs: `fil
 <path class="el" d="${lcdD(0)}" fill="#6fe3cf" opacity="0"/>
 <g class="lcdl">${segPaths(lcd)}</g>
 <path class="glass" d="${lcdD(0)}" fill="url(#arcGlass)" pointer-events="none"/>
-${text('label', 'MOON · SUN · ALARM · CHRONO', 500, 843, 14, { align: 'middle', track: 0.2, attrs: `fill="${C.silver}"` })}
-${text('cond', 'QUARTZ', 500, 877, 10.5, { align: 'middle', track: 0.5, attrs: `fill="${C.gold}" opacity=".9"` })}
+${(() => { // dial print under the display, the same in both modes: yellow spec line, blue function line, small origin mark
+    const cap = 15.5, big = 19, tr = 0.04, wW = textWidth('labelB', 'WATER ', cap / GLYPHS.labelB.capH * 1000, tr),
+      w5 = textWidth('labelB', '50M ', big / GLYPHS.labelB.capH * 1000, tr), wR = textWidth('labelB', 'RESIST', cap / GLYPHS.labelB.capH * 1000, tr),
+      x0 = 500 - (wW + w5 + wR) / 2, y = 846, yA = `fill="${C.yellow}"`;
+    return text('labelB', 'WATER', x0, y, cap, { track: tr, attrs: yA }) + text('labelB', '50M', x0 + wW, y, big, { track: tr, attrs: yA }) +
+      text('labelB', 'RESIST', x0 + wW + w5, y, cap, { track: tr, attrs: yA }) +
+      text('label', 'ALARM CHRONO', 500, 878, 12.5, { align: 'middle', track: 0.06, attrs: `fill="${C.blue}"` }) +
+      text('label', 'JAPAN U', 500, 912, 7, { align: 'middle', track: 0.14, attrs: `fill="${C.silver}" opacity=".9"` });
+  })()}
 ${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn('FWD', 32, false)}
 `;
     return { id: 'arc', name: 'Arc', svg, segs: mg.concat(lcd), palette: {
-      lcdOn: '#161b18', lcdGhost: 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
+      lcdOn: '#161b18', lcdGhost: opt.classic ? 'rgba(22,27,24,.062)' : 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
       stOn: '#e6eefb', stGhost: 'rgba(230,238,251,.022)',
       shadow: 'rgba(28,34,30,.32)', glow: 'rgba(255,214,120,.55)', negative: false,
       el: '#7fe7d2' }, lcdBox, kind: 'watch' };
@@ -564,7 +575,10 @@ ${text('label', 'MOON · SUN · ALARM', 500, 846, 12, { align: 'middle', track: 
 
   const BUILDERS = { arc: buildArc, desk: buildDesk, noir: buildNoir };
   const cache = {};
-  function build(id) { return cache[id] || (cache[id] = BUILDERS[id]()); }
+  function build(id, opt = {}) {
+    const key = id + (opt.classic ? ':classic' : '');
+    return cache[key] || (cache[key] = BUILDERS[id](opt));
+  }
 
   /** Full standalone SVG document for a face (used by the firmware pipeline & previews). */
   function standalone(id, extraCss = '') {

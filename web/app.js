@@ -251,7 +251,7 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   function mount(id) {
     if (!F.ids.includes(id)) id = 'arc';
     faceId = id; store.set('face', id);
-    const face = F.build(id), pal = face.palette;
+    const face = F.build(id, { classic: store.get('dialText', 'modern') === 'classic' }), pal = face.palette;
     device.className = 'device ' + face.kind + (pal.negative ? ' neg' : '') + (lensOk ? ' lens' : '');
     device.innerHTML = face.kind === 'watch' ? watchLayers(face) : clockLayers(face);
     deviceSvg = device.querySelector('.segs');
@@ -592,6 +592,13 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     gmw15: 'Casio’s low-precision method from its 1989 patent: whole-degree location, moon age at local noon, the hour angle recalculated on the hour, moon times interpolated over the lunar day.',
     modern: 'Arc-minute Sun and Moon positions; every event time solved to the second.',
   };
+  // dial print: modern Selene type, or a classic heavy-sans / gold-serif print with stronger LCD ghosting (Arc watch)
+  const syncDialSeg = () => document.querySelectorAll('#dialSeg button').forEach((b) => b.classList.toggle('on', b.dataset.dial === store.get('dialText', 'modern')));
+  $('#dialSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    store.set('dialText', b.dataset.dial); syncDialSeg(); mount(faceId); applyOpts(); frame();
+  });
+  syncDialSeg();
   $('#engineSeg').innerHTML = MOD.ENGINES.map(([id, label]) => `<button data-engine="${id}">${label}<small>${ENGINE_SUB[id]}</small></button>`).join('');
   function markEngine() {
     document.querySelectorAll('#engineSeg button').forEach((b) => b.classList.toggle('on', b.dataset.engine === mod.s.engine));
