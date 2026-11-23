@@ -693,8 +693,8 @@ input[type=range]{accent-color:var(--gold);width:110px}
     // moon panel: as wide as the time display below it, with a low arched top
     const W = { cx: 500, cy: 474, R: 350, top: 226 };
     // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
-    const SE = 2.7, BR = 34, baseY = W.cy + 34; // BR = the time display's top-corner radius
-    const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return W.cy - (W.cy - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
+    const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
+    const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
     const T = { rx: 208, ry: 118, cy: W.cy - 8 }; // hour-angle track
     const G = { cx: 500, cy: W.cy, rx: 286, ry: 198, mr: 29, a0: 162, astep: 18,
       hr0: 1, hr1: 1, hw: 0, hdot: 6.2, hrx: () => T.rx, hry: () => T.ry, hcy: T.cy,
@@ -732,17 +732,17 @@ input[type=range]{accent-color:var(--gold);width:110px}
     // hour-angle printed track: a pip under each marker position
     let haScale = '';
     for (let k = 0; k < 13; k++) { const a = (180 - k * 15) * RAD; haScale += circleD(W.cx + T.rx * Math.cos(a), T.cy - T.ry * Math.sin(a), 1.7); }
-    const base = `V${baseY - BR}C${W.cx + W.R} ${baseY - BR * 0.42} ${W.cx + W.R - BR * 0.42} ${baseY} ${W.cx + W.R - BR} ${baseY}H${W.cx - W.R + BR}C${W.cx - W.R + BR * 0.42} ${baseY} ${W.cx - W.R} ${baseY - BR * 0.42} ${W.cx - W.R} ${baseY - BR}Z`;
+    const base = `C${W.cx + W.R} ${baseY - BR * 0.42} ${W.cx + W.R - BR * 0.42} ${baseY} ${W.cx + W.R - BR} ${baseY}H${W.cx - W.R + BR}C${W.cx - W.R + BR * 0.42} ${baseY} ${W.cx - W.R} ${baseY - BR * 0.42} ${W.cx - W.R} ${baseY - BR}Z`;
     let topD = '';
-    for (let i = 1; i <= 120; i++) { const x = W.cx - W.R + (2 * W.R) * (0.5 - 0.5 * Math.cos(Math.PI * i / 120)); topD += `L${f1(x)} ${(i === 120 ? W.cy : topY(x)).toFixed(2)}`; }
-    const domeD = `M${W.cx - W.R} ${W.cy}${topD}${base}`;
+    for (let i = 1; i <= 120; i++) { const x = W.cx - W.R + (2 * W.R) * (0.5 - 0.5 * Math.cos(Math.PI * i / 120)); topD += `L${f1(x)} ${(i === 120 ? sideY : topY(x)).toFixed(2)}`; }
+    const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
     const waves = [0, 1].map((j) => {
-      let d = `M${W.cx - W.R + 30} ${W.cy + 12 + j * 10}`;
-      for (let x = W.cx - W.R + 30; x < W.cx + W.R - 40; x += 24) d += `q6 -2.2 12 0t12 0`;
+      let d = `M${W.cx - W.R + 6} ${W.cy + 12 + j * 10}`;
+      for (let x = W.cx - W.R + 6; x < W.cx + W.R - 6; x += 24) d += `q6 -2.2 12 0t12 0`;
       return d;
     }).join('');
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
-    const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: 34, rb: 104 };
+    const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
     const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
     const btn = (label, ang, upper) => arcText('label', label, 500, 500, 436, ang, 14, upper, { track: 0.16, attrs: `fill="${C.silver}"` }) +
       `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${C.gold}"/>`;
@@ -751,6 +751,7 @@ input[type=range]{accent-color:var(--gold);width:110px}
   <radialGradient id="arcDial" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
   <linearGradient id="arcSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#010203"/><stop offset=".7" stop-color="#04070c"/><stop offset="1" stop-color="#0b1524"/></linearGradient>
   <linearGradient id="arcLcd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.lcd0}"/><stop offset="1" stop-color="${C.lcd1}"/></linearGradient>
+  <clipPath id="arcPanel"><path d="${domeD}"/></clipPath>
   <linearGradient id="arcGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
 </defs>
 <circle cx="500" cy="500" r="500" fill="url(#arcDial)"/>
@@ -763,11 +764,11 @@ ${text('label', 'LUNAR ARC', 500, 160, 11.5, { align: 'middle', track: 0.42, att
 <path d="${domeD}" fill="url(#arcSky)"/>
 <g fill="#c7d3e3">${starSvg}</g>
 <path d="${haScale}" fill="${C.silver}" opacity=".55"/>
-<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}${base}" fill="#05080d" opacity=".92"/>
+<g clip-path="url(#arcPanel)"><rect x="${W.cx - W.R}" y="${W.cy}" width="${2 * W.R}" height="40" fill="#05080d" opacity=".92"/>
 <path d="${waves}" fill="none" stroke="#9fb3cf" stroke-opacity=".22" stroke-width="1.4"/>
-<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/>
-${text('label', 'E', W.cx - W.R + 34, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
-${text('label', 'W', W.cx + W.R - 34, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/></g>
+${text('label', 'E', W.cx - W.R + 46, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
+${text('label', 'W', W.cx + W.R - 46, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
 <path d="${domeD}" fill="none" stroke="#b9c6d8" stroke-width="3.2"/>
 <path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2" transform="translate(0 1.5)"/>
 <g class="mgl">${segPaths(mg)}</g>
