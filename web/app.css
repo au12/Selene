@@ -24,8 +24,11 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 /* stacked layers: body in flow, the rest laid exactly over it at their own depth */
 .device .L{position:absolute;left:0;top:0;height:100%;pointer-events:none;will-change:transform;backface-visibility:hidden}
 .device .L.body{position:relative;height:auto;pointer-events:auto}
-.device .dial{transform:translateZ(-22px)}
-.device .segs{transform:translateZ(-21px)}
+.device .dialwin{transform:translateZ(-36px)}
+.device .segs{transform:translateZ(-35px)}
+.device .dial{transform:translateZ(-14px)}
+.device:not(:has(.dialwin)) .dial{transform:translateZ(-22px)}
+.device:not(:has(.dialwin)) .segs{transform:translateZ(-21px)}
 .device .glass{transform:translateZ(6px)}
 .device .spec{transform:translateZ(40px) translate(calc(var(--tx,0)*-2.4%),calc(var(--ty,0)*-2.4%));transition:transform .5s cubic-bezier(.2,.7,.2,1)}
 .device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}

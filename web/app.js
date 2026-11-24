@@ -105,12 +105,17 @@
     const tf = `transform="translate(${cx - Rf} ${cy - Rf}) scale(${s})"`;
     const clip = (id) => `<clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${Rf}"/></clipPath>`;
     const print = face.svg.replace(/data-s="/g, 'data-g="');
+    // with display openings, the dial is drawn twice: what shows through the openings (deep) and the dial face with
+    // the openings cut out (a little higher), so the displays sit recessed under the dial and shift as it tilts
+    const win = face.windows ? `<clipPath id="winOut"><path clip-rule="evenodd" d="M-200 -200H1200V1200H-200Z${face.windows.join('')}"/></clipPath>` : '';
     const by = { lcd: '', mg: '', st: '' };
     for (const q of face.segs) by[q.cls] += `<path class="s" data-s="${q.id}" d="${q.d}"/>`;
-    return `${svgOpen('dial', vb, 'aria-hidden="true"')}<defs>${clip('dialClip')}
-<filter id="dome" filterUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000" color-interpolation-filters="sRGB"><feImage href="${lensMap(L.r0)}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="none" result="m"/><feDisplacementMap in="SourceGraphic" in2="m" scale="${2 * L.k}" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+    return `${svgOpen(face.windows ? 'dialwin' : 'dial', vb, 'aria-hidden="true"')}<defs>${clip('dialClip')}
+${win}<filter id="dome" filterUnits="userSpaceOnUse" x="0" y="0" width="1000" height="1000" color-interpolation-filters="sRGB"><feImage href="${lensMap(L.r0)}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="none" result="m"/><feDisplacementMap in="SourceGraphic" in2="m" scale="${2 * L.k}" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
 <circle cx="${cx}" cy="${cy}" r="${Rf + 30}" fill="#020203"/>
 <g clip-path="url(#dialClip)"><g ${tf}><g class="print">${print}</g></g></g></svg>
+${win ? `${svgOpen('dial', vb, 'aria-hidden="true"')}<defs>${clip('faceClip')}</defs>
+<g clip-path="url(#faceClip)"><g ${tf}><g class="print" clip-path="url(#winOut)">${print}</g></g></g></svg>` : ''}
 ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 <filter id="lcdShadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="2.2" dy="2.8" stdDeviation="1.3" flood-color="${pal.shadow}" flood-opacity="1"/></filter>
 <filter id="mgGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="b"/><feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 .9 0 0 0  0 0 .6 0 0  0 0 0 .55 0" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -334,7 +339,7 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   const still = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
   function tilt(x, y) { // x, y in -1..1
     x = Math.max(-1, Math.min(1, x)); y = Math.max(-1, Math.min(1, y));
-    device.style.transform = `rotateY(${(x * 8).toFixed(2)}deg) rotateX(${(-y * 6.5).toFixed(2)}deg)`;
+    device.style.transform = `rotateY(${(x * 11).toFixed(2)}deg) rotateX(${(-y * 9).toFixed(2)}deg)`;
     device.style.setProperty('--tx', x.toFixed(3)); device.style.setProperty('--ty', y.toFixed(3));
   }
   if (!still && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {

@@ -534,7 +534,9 @@ ${btn('SET', 214, true, -1)}${btn('MODE', 146, false, 1)}${btn('REV', -34, true,
       lcdOn: '#161b18', lcdGhost: opt.classic ? 'rgba(22,27,24,.062)' : 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
       stOn: '#ecc75e', stGhost: 'rgba(236,199,94,.02)',
       shadow: 'rgba(28,34,30,.32)', glow: 'rgba(255,214,120,.55)', negative: false,
-      el: '#7fe7d2' }, lcdBox, kind: 'watch' };
+      el: '#7fe7d2' }, lcdBox, kind: 'watch',
+      // the two display openings, for the simulator's depth layers (the dial floats a little above what's behind them)
+      windows: [domeD, lcdD(4)] };
   }
 
   // ================================================================ FACE: DESK (alarm clock dial)
