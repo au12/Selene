@@ -159,16 +159,16 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
   function pusher(btn, ang, cx, cy, R, ge = 30) {
     const x = cx + R, gx = x - 34, gw = ge + 34;
     let knurl = '';
-    for (let i = 0; i < 5; i++) knurl += `M${x + 15 + i * 5} ${cy - 16}v32`;
+    for (let i = 0; i < 5; i++) knurl += `M${x + 15 + i * 5} ${cy - 11}v22`;
     return `<g data-btn="${btn}" transform="rotate(${ang} ${cx} ${cy})" style="--px:-6px;--py:0px" role="button" aria-label="${BTN[btn]}">
-<rect x="${x + 6}" y="${cy - 20}" width="${ge}" height="40" rx="5" fill="#010102"/>
-<g class="cap"><rect x="${x + 10}" y="${cy - 17}" width="32" height="34" rx="7" fill="url(#steelV)"/>
+<rect x="${x + 6}" y="${cy - 14}" width="${ge}" height="28" rx="4" fill="#010102"/>
+<g class="cap"><rect x="${x + 10}" y="${cy - 12}" width="32" height="24" rx="5.5" fill="url(#steelV)"/>
 <path d="${knurl}" stroke="#000" stroke-opacity=".28" stroke-width="1.6"/>
-<rect x="${x + 36}" y="${cy - 17}" width="6" height="34" rx="3" fill="#fff" opacity=".32"/></g>
-<rect x="${gx}" y="${cy - 47}" width="${gw}" height="94" rx="21" fill="url(#guardG)"/>
-<rect x="${gx}" y="${cy - 47}" width="${gw}" height="94" rx="21" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
-<rect x="${x + ge - 4}" y="${cy - 21}" width="5" height="42" rx="2.5" fill="#000" opacity=".85"/>
-<rect x="${gx}" y="${cy - 52}" width="${Math.max(100, gw + 20)}" height="104" fill="transparent"/></g>`;
+<rect x="${x + 36}" y="${cy - 12}" width="6" height="24" rx="3" fill="#fff" opacity=".32"/></g>
+<rect x="${gx}" y="${cy - 33}" width="${gw}" height="66" rx="15" fill="url(#guardG)"/>
+<rect x="${gx}" y="${cy - 33}" width="${gw}" height="66" rx="15" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
+<rect x="${x + ge - 4}" y="${cy - 15}" width="5" height="30" rx="2.5" fill="#000" opacity=".85"/>
+<rect x="${gx}" y="${cy - 46}" width="${Math.max(100, gw + 20)}" height="92" fill="transparent"/></g>`;
   }
 
   function watchLayers(face) {
