@@ -1997,22 +1997,23 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 </svg>`;
   }
 
-  // ge: how far the shroud reaches out past the case radius. The shroud is drawn over the pusher stem, so only the
-  // tip shows: 12 of the cap's 42 on most pushers, 4 on a recessed one.
-  function pusher(btn, ang, cx, cy, R, ge = 30) {
-    const x = cx + R, gx = x - 34, gw = ge + 34;
+  // Shrouds are broad, low lobes on the case (about a quarter of the case radius wide, standing 35 proud of it), drawn
+  // over the pusher stem; the pusher's tip shows past the lobe by `tip` (12 normally, 3 when recessed).
+  function pusher(btn, ang, cx, cy, R, tip = 12) {
+    const x = cx + R, GE = 35, cx0 = x + GE + tip - 32; // cap runs 32 long and ends at x + GE + tip
     let knurl = '';
-    for (let i = 0; i < 5; i++) knurl += `M${x + 15 + i * 5} ${cy - 11}v22`;
+    for (let i = 0; i < 4; i++) knurl += `M${cx0 + 6 + i * 5} ${cy - 13}v26`;
     return `<g data-btn="${btn}" transform="rotate(${ang} ${cx} ${cy})" style="--px:-6px;--py:0px" role="button" aria-label="${BTN[btn]}">
-<rect x="${x + 6}" y="${cy - 14}" width="${ge}" height="28" rx="4" fill="#010102"/>
-<g class="cap"><rect x="${x + 10}" y="${cy - 12}" width="32" height="24" rx="5.5" fill="url(#steelV)"/>
+<rect x="${x + 4}" y="${cy - 18}" width="${GE}" height="36" rx="5" fill="#010102"/>
+<g class="cap"><rect x="${cx0}" y="${cy - 15}" width="32" height="30" rx="6" fill="url(#steelV)"/>
 <path d="${knurl}" stroke="#000" stroke-opacity=".28" stroke-width="1.6"/>
-<rect x="${x + 36}" y="${cy - 12}" width="6" height="24" rx="3" fill="#fff" opacity=".32"/></g>
-<rect x="${gx}" y="${cy - 33}" width="${gw}" height="66" rx="15" fill="url(#guardG)"/>
-<rect x="${gx}" y="${cy - 33}" width="${gw}" height="66" rx="15" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
-<rect x="${x + ge - 4}" y="${cy - 15}" width="5" height="30" rx="2.5" fill="#000" opacity=".85"/>
-<rect x="${gx}" y="${cy - 46}" width="${Math.max(100, gw + 20)}" height="92" fill="transparent"/></g>`;
+<rect x="${cx0 + 26}" y="${cy - 15}" width="6" height="30" rx="3" fill="#fff" opacity=".32"/></g>
+<rect x="${x - 30}" y="${cy - 55}" width="${GE + 30}" height="110" rx="32" fill="url(#guardG)"/>
+<rect x="${x - 30}" y="${cy - 55}" width="${GE + 30}" height="110" rx="32" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
+<rect x="${x + GE - 4}" y="${cy - 19}" width="5" height="38" rx="2.5" fill="#000" opacity=".85"/>
+<rect x="${x - 30}" y="${cy - 58}" width="${GE + 60}" height="116" fill="transparent"/></g>`;
   }
+
 
   function watchLayers(face) {
     const vb = '0 240 1000 1080', cx = 500, cy = 780, Rc = 440, Ra = 356, Rf = 368, Rs = Rc - 30;
@@ -2045,7 +2046,7 @@ ${holeClip(cx, cy, Ra + 9)}
 </defs><g clip-path="url(#bodyHole)">
 <ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#soft)"/>
 <g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g>
-${pusher('B', 212, cx, cy, Rc, 38)}${pusher('C', 148, cx, cy, Rc)}${pusher('D', -32, cx, cy, Rc)}${pusher('A', 32, cx, cy, Rc)}
+${pusher('B', 200, cx, cy, Rc, 3)}${pusher('C', 160, cx, cy, Rc)}${pusher('D', -20, cx, cy, Rc)}${pusher('A', 20, cx, cy, Rc)}
 <circle cx="${cx}" cy="${cy}" r="${Rc}" fill="url(#caseG)"/>
 <circle cx="${cx}" cy="${cy}" r="${Rc - 1.5}" fill="none" stroke="url(#chamG)" stroke-width="3"/>
 <circle cx="${cx}" cy="${cy}" r="${(Rc + Rs) / 2}" fill="none" stroke="url(#slopeG)" stroke-width="${Rc - Rs}"/>
