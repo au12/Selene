@@ -128,7 +128,9 @@ The exact day count matters: one day either way roughly doubles the moon-time er
 
 ```bash
 # Docker
-docker run -d --name selene -p 8087:80 --restart unless-stopped ghcr.io/au12/selene:latest
+docker run -d --name selene -p 8087:80 --restart unless-stopped \
+  --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges \
+  --pids-limit=64 --memory=64m ghcr.io/au12/selene:latest
 
 # Unraid: Docker → Add Container → Template → unraid/selene.xml (or paste its URL)
 
@@ -138,6 +140,19 @@ open dist/index.html            # it is fully self-contained
 
 The image is built by `.github/workflows/docker.yml` for `linux/amd64` and `linux/arm64` and published to
 `ghcr.io/<owner>/selene` on every push to `main` (and semver tags). It serves a PWA (installable, works offline).
+
+**Public hosting.** The container is a static page with nothing stored server-side, and it is hardened to sit behind
+an HTTPS reverse proxy:
+- nginx runs as the unprivileged `nginx` user, so the container works with a read-only filesystem, every capability
+  dropped and `no-new-privileges` (the flags above; the Unraid template sets them). Binding port 80 without root
+  needs Docker 20.10+ with bridge networking, the Unraid default.
+- Headers: a strict Content-Security-Policy generated at build time (only this build's inline scripts, by hash; no
+  outside origins), `X-Frame-Options`, `nosniff`, `no-referrer`, COOP/CORP and a Permissions-Policy limited to
+  location and motion sensors. `server_tokens off` hides the nginx version.
+- Only GET/HEAD are allowed, dotfiles return 404, request bodies are capped at 1 KB, and a per-visitor rate limit
+  (10 req/s, burst 40) returns 429. `X-Forwarded-For` is trusted from private addresses only, so the log and the
+  limit see the real visitor behind your proxy.
+- Turn on HTTPS and HSTS at the proxy: the browser only allows location, install/offline and phone tilt over HTTPS.
 
 ---
 
@@ -233,7 +248,7 @@ firmware/     selene-clock.yaml · components/selene/ (astro, watch, renderer, f
 enclosure/    selene_enclosure.py → out/*.step|stl|3mf
 tools/        face rendering/packing, astro cross-check, JS↔C++ differential tests, screenshots
 docs/         BUILD.md · wiring.svg
-unraid/       selene.xml          .github/workflows/docker.yml          Dockerfile · docker/nginx.conf
+unraid/       selene.xml          .github/workflows/docker.yml          Dockerfile · docker/*.conf
 ```
 
 ## Development

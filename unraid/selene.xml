@@ -9,12 +9,12 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/au12/selene/issues</Support>
   <Project>https://github.com/au12/selene</Project>
-  <Overview>Selene — an interactive moon-data LCD watch and desk-clock simulator. Moon phase arc, moon hour-angle times, sunrise/sunset for any date, alarm, hourly chime, stopwatch and a time machine. Fully offline, no data stored server-side.</Overview>
+  <Overview>Selene — an interactive moon-data LCD watch and desk-clock simulator. Moon phase arc, moon hour-angle times, sunrise/sunset for any date, alarm, hourly chime, stopwatch and a time machine. Fully offline, no data stored server-side. Runs unprivileged with a read-only filesystem and no capabilities, with security headers, a strict Content-Security-Policy and a per-visitor rate limit, so it is fit to put behind an HTTPS reverse proxy.</Overview>
   <Category>Tools: Other:</Category>
   <WebUI>http://[IP]:[PORT:80]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/au12/selene/main/unraid/selene.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/au12/selene/main/assets/icon-512.png</Icon>
-  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <ExtraParams>--restart=unless-stopped --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=64 --memory=64m</ExtraParams>
   <PostArgs/>
   <CPUset/>
   <DateInstalled/>
