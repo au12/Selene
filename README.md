@@ -55,7 +55,9 @@ It's built to stay light on a phone: turning the watch is a compositor-only tran
 just the size of the crystal with no filters or masks and is redrawn at most ~60 times a second, and nothing
 animates while the watch is still (the clock repaints once a second). Phone tilt comes from the gravity direction
 through a 1€ filter with a dead band, so sensor noise doesn't keep the page busy, and the motion sensor is released
-when the tab is hidden. *Settings → Tilt with mouse / phone* turns tilting off altogether. `node tools/bench_web.mjs`
+when the tab is hidden. *Settings → Tilt with mouse / phone* turns tilting off altogether. On iPhone/iPad the first tap asks for motion access (iOS only
+offers it over HTTPS). Safari and all iOS browsers skip the rim stretch: WebKit's displacement filter brightens dark
+tones 4-5x, which turned faint LCD ghosts into solid shapes. `node tools/bench_web.mjs`
 measures paint and raster time for a phone-sized page being wobbled.
 
 **The band and lugs are measured off a real watch.** Each strap has a narrow tab under the lug, two dimpled pads

@@ -1930,6 +1930,9 @@ ${extraCss}
 
   // Displacement map for the domed crystal: flat in the middle (the LCD stays put) and bending the print
   // outward more and more toward the rim, the way a dome stretches whatever sits under its edge.
+  // Not on WebKit (Safari, and every browser on iOS): its feDisplacementMap runs the picture through a linear→sRGB
+  // conversion whatever color-interpolation-filters says, so dark tones come out 4-5x too bright (faint LCD ghosts
+  // turn into solid shapes). Undoing that inside the filter loses those faint tones to 8-bit rounding, so it's skipped.
   const lensCache = {};
   function lensMap(r0) {
     if (lensCache[r0]) return lensCache[r0];
@@ -1947,7 +1950,8 @@ ${extraCss}
   // The map reaches the filter as a data: image. Only switch the lens on once such an image is known to load here,
   // because a map that fails to load would shift the whole dial instead of bending its rim.
   let lensOk = false;
-  { const im = new Image(); im.onload = () => { lensOk = im.naturalWidth === 256; if (lensOk) $('#device').classList.add('lens'); }; im.src = lensMap(LENS.arc.r0); }
+  const webkitOnly = /AppleWebKit\//.test(navigator.userAgent) && !/(Chrome|Chromium|Edg|OPR)\//.test(navigator.userAgent);
+  if (!webkitOnly) { const im = new Image(); im.onload = () => { lensOk = im.naturalWidth === 256; if (lensOk) $('#device').classList.add('lens'); }; im.src = lensMap(LENS.arc.r0); }
 
   function dialLayers(vb, face, cx, cy, Rf) {
     const pal = face.palette, s = Rf / 500, L = LENS[face.id];
@@ -2424,11 +2428,28 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
       if (Math.abs(x - out[0]) + Math.abs(y - out[1]) < 0.012) return; // dead band
       out = [x, y]; tilt(x, y);
     };
-    let on = false;
-    const listen = (v) => { if (v === on) return; on = v; window[v ? 'addEventListener' : 'removeEventListener']('deviceorientation', onOrient); if (!v) { base = null; tilt(0, 0); } };
-    listen(!document.hidden && opts.tilt);
-    document.addEventListener('visibilitychange', () => listen(!document.hidden && opts.tilt));
-    tiltListen = listen;
+    // iOS (13+) only sends motion data once the page asks, from inside a tap: ask on the first tap anywhere, or when
+    // Tilt is switched on in Settings. iOS also only offers this over HTTPS.
+    const DOE = window.DeviceOrientationEvent, needsAsk = typeof DOE.requestPermission === 'function';
+    let on = false, permOk = !needsAsk, asking = false;
+    const want = () => !document.hidden && opts.tilt;
+    const listen = (v) => {
+      v = v && permOk; if (v === on) return; on = v;
+      window[v ? 'addEventListener' : 'removeEventListener']('deviceorientation', onOrient);
+      if (!v) { base = null; tilt(0, 0); }
+    };
+    const ask = () => {
+      if (permOk || asking || !opts.tilt) return;
+      asking = true;
+      DOE.requestPermission().then((r) => { permOk = r === 'granted'; }).catch(() => {}).finally(() => { asking = false; listen(want()); });
+    };
+    if (needsAsk) {
+      const first = () => { ask(); window.removeEventListener('touchend', first, true); window.removeEventListener('click', first, true); };
+      window.addEventListener('touchend', first, true); window.addEventListener('click', first, true);
+    }
+    listen(want());
+    document.addEventListener('visibilitychange', () => listen(want()));
+    tiltListen = (v) => { if (v) ask(); listen(v && !document.hidden); };
   }
 
   // ------------------------------------------------------------------ render loop
