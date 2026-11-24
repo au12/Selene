@@ -233,4 +233,4 @@ make enclosure  # STEP/STL/3MF (needs cadquery)
 
 ## License
 
-MIT. Dial lettering uses glyph outlines from Michroma, Saira, Saira Condensed and Libre Caslon Text (SIL Open Font License 1.1, see `licenses/`).
+MIT. Dial lettering uses glyph outlines from Michroma, Saira, Saira Condensed, Libre Caslon Text and Inter (SIL Open Font License 1.1, see `licenses/`).

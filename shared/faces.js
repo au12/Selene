@@ -520,13 +520,13 @@ ${text('labelB', 'W', W.cx + EW, W.cy - 7, 15, { align: 'middle', attrs: `fill="
 <g class="lcdl">${segPaths(lcd)}</g>
 <path class="glass" d="${lcdD(0)}" fill="url(#arcGlass)" pointer-events="none"/>
 ${(() => { // dial print under the display, the same in both modes: yellow spec line, blue function line, small origin mark
-    const cap = 20, big = 25, tr = 0.04, wW = textWidth('labelB', 'WATER ', cap / GLYPHS.labelB.capH * 1000, tr),
-      w5 = textWidth('labelB', '50M ', big / GLYPHS.labelB.capH * 1000, tr), wR = textWidth('labelB', 'RESIST', cap / GLYPHS.labelB.capH * 1000, tr),
+    const F = 'spec', cap = 19, big = 24, tr = 0.02, sz = (c) => c / GLYPHS[F].capH * 1000,
+      wW = textWidth(F, 'WATER ', sz(cap), tr), w5 = textWidth(F, '50M ', sz(big), tr), wR = textWidth(F, 'RESIST', sz(cap), tr),
       x0 = 500 - (wW + w5 + wR) / 2, y = 853, yA = `fill="${C.yellow}"`;
-    return text('labelB', 'WATER', x0, y, cap, { track: tr, attrs: yA }) + text('labelB', '50M', x0 + wW, y, big, { track: tr, attrs: yA }) +
-      text('labelB', 'RESIST', x0 + wW + w5, y, cap, { track: tr, attrs: yA }) +
-      text('label', 'ALARM CHRONO', 500, 891, 16, { align: 'middle', track: 0.06, attrs: `fill="${C.blue}"` }) +
-      text('label', 'JAPAN U', 500, 925, 9.5, { align: 'middle', track: 0.14, attrs: `fill="${C.silver}" opacity=".9"` });
+    return text(F, 'WATER', x0, y, cap, { track: tr, attrs: yA }) + text(F, '50M', x0 + wW, y, big, { track: tr, attrs: yA }) +
+      text(F, 'RESIST', x0 + wW + w5, y, cap, { track: tr, attrs: yA }) +
+      text('specM', 'ALARM CHRONO', 500, 890, 15, { align: 'middle', track: 0.04, attrs: `fill="${C.blue}"` }) +
+      text('specM', 'JAPAN U', 500, 937, 9, { align: 'middle', track: 0.08, attrs: `fill="${C.silver}" opacity=".9"` });
   })()}
 ${btn('SET', 214, true, -1)}${btn('MODE', 146, false, 1)}${btn('REV', -34, true, 1)}${btn('FWD', 34, false, -1)}
 `;
