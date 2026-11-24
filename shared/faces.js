@@ -401,65 +401,72 @@
     const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
     const ridgeD = RANGE.map(([u, h], i) => `${i ? 'L' : 'M'}${W.cx + u} ${W.cy - h}`).join('');
     // a few slope lines inside the range, for depth
-    // rock detail, engraved style: a jagged snowline across the horn, a hatched shadow face under the summit on the
-    // west side, angular facets dropping from the ridge peaks, and a few broken strata lower down. Kept clear of the
-    // marker arc and the E / W labels.
+    // rock detail, low-poly: points along the ridge and the base plus an even scatter inside the mountain are
+    // Delaunay-triangulated into rock planes. Each facet is shaded by how it faces the light (from the east, the E side):
+    // brighter where it rises to the right, darker where it falls; facets above the snowline are brighter again.
+    // Fills are clipped to the mountain; edges break around the marker arc and the E / W labels.
     const EW = 188; // E / W sit inside the mountain's base corners, this far from the centre
-    const slopesD = (() => {
-      let sd = 41, d = '';
+    const SNOW = 112;
+    const rock = (() => {
+      let sd = 11;
       const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
-      const pip = (x, y) => Math.abs(Math.hypot((x - W.cx) / T.rx, (y - T.cy) / T.ry) - 1) < 0.17 && y < W.cy;
-      const lbl = (x, y) => y > W.cy - 28 && Math.abs(Math.abs(x - W.cx) - EW) < 22;
-      const clear = (x, y) => y < W.cy - 7 && !pip(x, y) && !lbl(x, y) && y > ridge(x) + 3;
-      const run = (pts) => { // polyline through the clear parts only
-        let seg = '', n = 0;
-        for (const [x, y] of pts) {
-          if (!clear(x, y)) { if (n > 1) d += seg; seg = ''; n = 0; continue; }
-          seg += `${n ? 'L' : 'M'}${f1(x)} ${f1(y)}`; n++;
-        }
-        if (n > 1) d += seg;
+      const pip = (x, y) => Math.abs(Math.hypot((x - W.cx) / T.rx, (y - T.cy) / T.ry) - 1) < 0.15 && y < W.cy;
+      const lbl = (x, y) => y > W.cy - 26 && Math.abs(Math.abs(x - W.cx) - EW) < 20;
+      const P = [];
+      RANGE.forEach(([u, h], i) => { if (i % 2 === 0 && u > -300 && u < 300) P.push([W.cx + u, W.cy - h]); });
+      for (let u = -300; u <= 300; u += 38) P.push([W.cx + u + (rnd() - 0.5) * 10, W.cy]);
+      for (let tries = 0; tries < 3000 && P.length < 120; tries++) { // even scatter (best of a few candidates)
+        const x = W.cx + (rnd() * 2 - 1) * 290, y = W.cy - rnd() * 180;
+        if (y > ridge(x) + 12 && y < W.cy - 10 && P.every(([px, py]) => (px - x) ** 2 + (py - y) ** 2 > 30 ** 2)) P.push([x, y]);
+      }
+      // Bowyer-Watson
+      const circ = (a, b, c) => {
+        const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+        const ux = ((a[0] ** 2 + a[1] ** 2) * (b[1] - c[1]) + (b[0] ** 2 + b[1] ** 2) * (c[1] - a[1]) + (c[0] ** 2 + c[1] ** 2) * (a[1] - b[1])) / d;
+        const uy = ((a[0] ** 2 + a[1] ** 2) * (c[0] - b[0]) + (b[0] ** 2 + b[1] ** 2) * (a[0] - c[0]) + (c[0] ** 2 + c[1] ** 2) * (b[0] - a[0])) / d;
+        return [ux, uy, (a[0] - ux) ** 2 + (a[1] - uy) ** 2];
       };
-      // snowline: teeth hanging down from about 60 below the summit
-      const SNOW = 118, snowY = [];
-      let xl = W.cx, xr = W.cx;
-      while (W.cy - ridge(xl - 1) > SNOW - 6) xl--;
-      while (W.cy - ridge(xr + 1) > SNOW - 6) xr++;
-      for (let x = xl, k = 0; x <= xr; x += 6 + rnd() * 7, k++) snowY.push([x, W.cy - SNOW + (k % 2 ? 9 + rnd() * 9 : rnd() * 3)]);
-      snowY.push([xr, ridge(xr) + 1]);
-      d += `M${f1(xl)} ${f1(ridge(xl) + 1)}` + snowY.map(([x, y]) => `L${f1(x)} ${f1(y)}`).join('');
-      const snowAt = (x) => { for (let i = 1; i < snowY.length; i++) if (x <= snowY[i][0]) { const [x0, y0] = snowY[i - 1], [x1, y1] = snowY[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); } return W.cy; };
-      // shadow face: from the summit a facet line drops to the snowline; west of it, fine 45° hatching
-      const top = RANGE.reduce((m, p) => (p[1] > m[1] ? p : m)), sx = W.cx + top[0], sy = W.cy - top[1];
-      const fx = sx + 26, fy = W.cy - SNOW + 6;
-      run([[sx, sy + 3], [sx + 9, sy + 24], [sx + 16, sy + 40], [fx, fy]]);
-      const facet = (y) => sx + (fx - sx) * (y - sy) / (fy - sy);
-      for (let c = sy - 40; c < fy + 200; c += 5.5) { // lines x - y = c - ...
-        const pts = [];
-        for (let t = 0; t < 140; t += 2) {
-          const x = sx - 20 + t, y = c + t * 0.9 - 60;
-          pts.push(x > facet(y) + 2 && x < xr && y < snowAt(x) - 2 && y > sy ? [x, y] : [x, -1e3]);
+      const sup = [[-5000, -5000], [6000, -5000], [500, 8000]];
+      let tris = [[sup[0], sup[1], sup[2]]].map((t) => ({ t, c: circ(...t) }));
+      for (const p of P) {
+        const bad = tris.filter(({ c }) => (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2 < c[2]);
+        const edges = [];
+        for (const { t } of bad) for (let k = 0; k < 3; k++) {
+          const e = [t[k], t[(k + 1) % 3]], i = edges.findIndex((f) => (f[0] === e[1] && f[1] === e[0]) || (f[0] === e[0] && f[1] === e[1]));
+          if (i >= 0) edges.splice(i, 1); else edges.push(e);
         }
-        run(pts);
+        tris = tris.filter((x) => !bad.includes(x));
+        for (const [a, b] of edges) tris.push({ t: [a, b, p], c: circ(a, b, p) });
       }
-      // facets: from each ridge peak below the snow, an angled stroke down and in, then a kink outward
-      for (let i = 2; i < RANGE.length - 2; i++) {
-        const [u, h] = RANGE[i];
-        if (h < 24 || h > SNOW - 8 || !(h > RANGE[i - 1][1] && h > RANGE[i + 1][1]) || rnd() < 0.12) continue;
-        const dir = u < 0 ? 1 : -1, x = W.cx + u, y = W.cy - h;
-        const l1 = 12 + rnd() * 16, l2 = 8 + rnd() * 12;
-        const x1 = x + dir * l1 * 0.45, y1 = y + l1, x2 = x1 - dir * l2 * 0.6, y2 = y1 + l2;
-        run([[x, y + 3], [(x + x1) / 2, (y + y1) / 2], [x1, y1], [(x1 + x2) / 2, (y1 + y2) / 2], [x2, y2]]);
-      }
-      // strata: a few broken lines that follow the ridge lower down
-      const smooth = (x) => { let t = 0; for (let k = -3; k <= 3; k++) t += ridge(x + k * 5); return t / 7; };
-      [[18, 0.6], [34, 0.5], [52, 0.42], [74, 0.32]].forEach(([o, p]) => {
-        for (let x = W.cx - 320; x < W.cx + 320;) {
-          const len = 8 + rnd() * 16;
-          if (rnd() < p) { const pts = []; for (let t = 0; t <= len; t += 3) { const xx = x + t, yy = smooth(xx) + o; pts.push(xx < xl || xx > xr || yy > snowAt(xx) + 6 ? [xx, yy] : [xx, -1e3]); } run(pts); }
-          x += len + 6 + rnd() * 16;
+      tris = tris.map(({ t }) => t).filter((t) => !t.some((v) => sup.includes(v)));
+      // facet shading from a per-vertex elevation: the ridge profile at that x, less depth below it, plus some noise
+      const z = new Map(P.map((p) => [p, (W.cy - ridge(p[0])) - (p[1] - ridge(p[0])) * 0.35 + (rnd() - 0.5) * 34]));
+      let fills = '', edges = '';
+      const seen = new Set();
+      for (const t of tris) {
+        const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cy = (t[0][1] + t[1][1] + t[2][1]) / 3;
+        if (cy < ridge(cx) - 2) continue; // outside the mountain
+        // plane z = a x + b y + c through the three vertices; a > 0 means it rises toward the west, i.e. it faces east
+        const [p0, p1, p2] = t, [z0, z1, z2] = t.map((v) => z.get(v));
+        const det = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]);
+        const ax = ((z1 - z0) * (p2[1] - p0[1]) - (z2 - z0) * (p1[1] - p0[1])) / det;
+        const light = Math.max(0, Math.min(1, 0.5 - ax * 0.9)), snow = W.cy - cy > SNOW - 22;
+        const op = (snow ? 0.12 + 0.26 * light : 0.02 + 0.13 * light).toFixed(3);
+        fills += `<path d="M${f1(p0[0])} ${f1(p0[1])}L${f1(p1[0])} ${f1(p1[1])}L${f1(p2[0])} ${f1(p2[1])}Z" fill-opacity="${op}"/>`;
+        for (let k = 0; k < 3; k++) {
+          const a = t[k], b = t[(k + 1) % 3], key = [a, b].map((p) => P.indexOf(p)).sort((m, n) => m - n).join('|');
+          if (seen.has(key) || (a[1] === W.cy && b[1] === W.cy)) continue;
+          seen.add(key);
+          let seg = '', n = 0;
+          for (let j = 0; j <= 16; j++) {
+            const x = a[0] + (b[0] - a[0]) * j / 16, y = a[1] + (b[1] - a[1]) * j / 16;
+            if (pip(x, y) || lbl(x, y) || y > W.cy - 2) { if (n > 1) edges += seg; seg = ''; n = 0; continue; }
+            seg += `${n ? 'L' : 'M'}${f1(x)} ${f1(y)}`; n++;
+          }
+          if (n > 1) edges += seg;
         }
-      });
-      return d;
+      }
+      return { fills, edges };
     })();
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
@@ -489,8 +496,10 @@ ${opt.classic
 <g fill="${C.line}" opacity=".7">${starSvg}</g>
 <g clip-path="url(#arcPanel)">
 <path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
+<clipPath id="arcMount"><path d="${ridgeD}V${W.cy}H${W.cx - W.R}Z"/></clipPath>
+<g clip-path="url(#arcMount)"><g fill="${C.line}">${rock.fills}</g>
+<path d="${rock.edges}" fill="none" stroke="${C.line}" stroke-opacity=".3" stroke-width=".9" stroke-linecap="round"/></g>
 <path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
-<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".6" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
 <path d="${haScale}" fill="${C.line}" opacity=".75"/>
 ${text('labelB', 'E', W.cx - EW, W.cy - 7, 15, { align: 'middle', attrs: `fill="${C.line}"` })}
