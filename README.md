@@ -46,7 +46,9 @@ marker lapping 24 steps while the phase advances every second tick, timekeeping 
 
 **The crystal is domed.** The watch and clocks are drawn as stacked layers at different depths: move the pointer
 (or tilt a phone that reports orientation) and the reflections slide over the dial while the dial shifts under the
-bezel. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
+bezel. The reflections are mapped like a convex lens: a window, a lamp and a far wall are squeezed and curved toward
+the rim, grow brighter at grazing angles (Fresnel), pick up a faint purple/green anti-reflective coating tint and stay
+clear of the middle of the dial. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
 
 **The band and lugs are measured off a real watch.** Each strap has a narrow tab under the lug, two dimpled pads
 divided by grooved ribs, then the flat strap with its holes. The lugs are drawn as thin slices, each a little deeper
