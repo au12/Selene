@@ -327,7 +327,7 @@
     // moon panel: as wide as the time display below it, with a low arched top
     const W = { cx: 500, cy: 474, R: 350, top: 190 };
     // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
-    const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
+    const SE = 2.7, BR = 50, baseY = W.cy + 13, sideY = baseY - BR; // BR = the time display's top-corner radius; baseY puts the gap to the display on the centreline (y 500)
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
     const T = { rx: 94, ry: 80, cy: W.cy - 8 }; // hour-angle track: an arc inside the mountain
     // one Matterhorn-style peak in the middle, jagged and rocky, on a wide base. RANGE = [x from centre, height above
@@ -362,14 +362,14 @@
     const G = { cx: 500, cy: W.cy, rx: 286, ry: 222, mr: 35, a0: 162, astep: 18,
       hr0: 1, hr1: 1, hw: 0, hdot: 8.4, hrx: () => T.rx, hry: () => T.ry, hcy: T.cy,
       sex: 186, swx: 814, sy: W.cy, sr: 12.5,
-      nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starR: 6.4, starShape: star5D,
+      nadir: { x: 500, y: W.cy - 16, s: 5.6 }, starSeed: 12, starR: 6.4, starShape: star5D,
       starIn: (x, y) => Math.abs(x - W.cx) < W.R - 22 && y < ridge(x) - 18 && y > topY(x) + 16,
       starAvoid: () => false };
     const mg = moonGraph(G);
     // r0..r8: a small gold pointer under the horizon below each moon slot
     for (let k = 0; k < 9; k++) {
-      const x = mg[k].cx, y = W.cy + 7;
-      mg.push({ id: 'r' + k, cls: 'mg', d: `M${f1(x)} ${y}L${f1(x + 6)} ${y + 8}H${f1(x - 6)}Z` });
+      const x = mg[k].cx, y = W.cy + 3;
+      mg.push({ id: 'r' + k, cls: 'mg', d: `M${f1(x)} ${y}L${f1(x + 5)} ${y + 7}H${f1(x - 5)}Z` });
     }
     const L = { mx: 186, my: 548, mp: 9.6, md: 8.2, mg: 12,
       sx: 566, sy: 548, sw: 42, sh: 66, st: 8.6, sgap: 11, sdz: 26, g: 1.6, slant: 4,
