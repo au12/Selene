@@ -451,7 +451,7 @@
         const det = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]);
         const ax = ((z1 - z0) * (p2[1] - p0[1]) - (z2 - z0) * (p1[1] - p0[1])) / det;
         const light = Math.max(0, Math.min(1, 0.5 - ax * 0.9)), snow = W.cy - cy > SNOW - 22;
-        const op = (snow ? 0.12 + 0.26 * light : 0.02 + 0.13 * light).toFixed(3);
+        const op = (snow ? 0.07 + 0.15 * light : 0.012 + 0.075 * light).toFixed(3);
         fills += `<path d="M${f1(p0[0])} ${f1(p0[1])}L${f1(p1[0])} ${f1(p1[1])}L${f1(p2[0])} ${f1(p2[1])}Z" fill-opacity="${op}"/>`;
         for (let k = 0; k < 3; k++) {
           const a = t[k], b = t[(k + 1) % 3], key = [a, b].map((p) => P.indexOf(p)).sort((m, n) => m - n).join('|');
@@ -498,7 +498,7 @@ ${opt.classic
 <path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
 <clipPath id="arcMount"><path d="${ridgeD}V${W.cy}H${W.cx - W.R}Z"/></clipPath>
 <g clip-path="url(#arcMount)"><g fill="${C.line}">${rock.fills}</g>
-<path d="${rock.edges}" fill="none" stroke="${C.line}" stroke-opacity=".3" stroke-width=".9" stroke-linecap="round"/></g>
+<path d="${rock.edges}" fill="none" stroke="${C.line}" stroke-opacity=".2" stroke-width=".9" stroke-linecap="round"/></g>
 <path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
 <path d="${haScale}" fill="${C.line}" opacity=".75"/>
