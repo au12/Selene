@@ -330,11 +330,27 @@
     const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
     const T = { rx: 64, ry: 64, cy: W.cy - 12 }; // hour-angle track: a small arc inside the mountain
-    // one Matterhorn-style peak in the middle: [x from centre, height above the horizon]. Steep east face, a summit
-    // hooked slightly to the left, a shoulder on the west ridge. The moon-position marker sits inside it.
-    const RANGE = [[-350, 0], [-196, 0], [-160, 14], [-128, 30], [-100, 50], [-78, 70], [-62, 90], [-50, 112], [-40, 134],
-      [-30, 152], [-20, 164], [-10, 171], [-3, 174], [4, 172], [9, 165], [14, 154], [22, 146], [34, 141], [46, 130],
-      [58, 110], [74, 86], [96, 60], [124, 36], [158, 16], [200, 0], [350, 0]];
+    // one Matterhorn-style peak in the middle, jagged and rocky, on a wide base. RANGE = [x from centre, height above
+    // the horizon]: a smooth envelope (steep horn, hooked summit, shoulder on the west ridge) broken into rocky steps.
+    // The envelope stays under the moon slots: the moons sweep over it, the moon-position marker sits inside it.
+    const RANGE = (() => {
+      let sd = 97;
+      const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+      const env = (u) => u < 0 ? 176 * Math.pow(Math.max(0, 1 + u / 318), 1.55)
+        : 176 * Math.pow(Math.max(0, 1 - u / 322), 1.75) + 13 * Math.exp(-(((u - 46) / 15) ** 2));
+      const pts = [[-350, 0]];
+      for (const side of [-1, 1]) {
+        const run = [];
+        for (let u = 12; u < 322; u += 6 + rnd() * 11) {
+          const e = env(side * u), jag = (2.5 + 9 * Math.min(1, e / 90)) * (rnd() < 0.5 ? -1 : 0.6) * (0.5 + rnd());
+          run.push([side * Math.round(u), Math.max(0, Math.min(e + 5, e + jag))]);
+        }
+        if (side < 0) pts.push(...run.reverse(), [-6, 171], [-3, 177], [3, 172]); // summit, leaning west
+        else pts.push([7, 167], [10, 171], ...run); // the hook
+      }
+      pts.push([350, 0]);
+      return pts.map(([u, h]) => [u, Math.round(h * 10) / 10]);
+    })();
     const ridge = (x) => { // horizon y under the ridge line at x
       const u = x - W.cx;
       for (let i = 1; i < RANGE.length; i++) if (u <= RANGE[i][0]) {
@@ -385,8 +401,32 @@
     const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
     const ridgeD = RANGE.map(([u, h], i) => `${i ? 'L' : 'M'}${W.cx + u} ${W.cy - h}`).join('');
     // a few slope lines inside the range, for depth
-    const slopesD = [[-3, 174, -16, 118], [-16, 118, -26, 92], [14, 154, 8, 120], [34, 141, 28, 112], [-62, 90, -54, 66], [74, 86, 66, 64]]
-      .map(([x0, h0, x1, h1]) => `M${W.cx + x0} ${W.cy - h0}L${W.cx + x1} ${W.cy - h1}`).join('');
+    const slopesD = (() => {
+      let sd = 5, d = '';
+      const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+      const pip = (x, y) => Math.abs(Math.hypot(x - W.cx, y - T.cy) - T.rx) < 13 && y < W.cy;
+      for (let i = 2; i < RANGE.length - 2; i++) {
+        const [u, h] = RANGE[i];
+        if (h < 18 || !(h <= RANGE[i - 1][1] || h <= RANGE[i + 1][1]) || rnd() < 0.3) continue; // notches and steps
+        // a gully runs down and in from the notch, in short kinked strokes
+        let x = W.cx + u, y = W.cy - h, seg = `M${f1(x)} ${f1(y)}`, ok = true;
+        const steps = 2 + Math.floor(rnd() * 3), dir = u < 0 ? 1 : -1;
+        for (let k = 0; k < steps; k++) {
+          x += dir * (2 + rnd() * 7); y += 9 + rnd() * 13;
+          if (y > W.cy - 6 || pip(x, y) || y < ridge(x) + 3) { ok = false; break; }
+          seg += `L${f1(x)} ${f1(y)}`;
+        }
+        if (ok && steps) d += seg;
+      }
+      // rock ledges: short, slightly tilted strokes across the upper faces
+      for (let k = 0; k < 26; k++) {
+        const u = (rnd() * 2 - 1) * 150, top = W.cy - (ridge(W.cx + u) - W.cy) * -1;
+        const y = ridge(W.cx + u) + 12 + rnd() * 70, x = W.cx + u, w = 6 + rnd() * 12, t = (u < 0 ? 1 : -1) * (2 + rnd() * 4);
+        if (y > W.cy - 14 || pip(x, y) || pip(x + w, y + t) || y < ridge(x + w) + 6) continue;
+        d += `M${f1(x)} ${f1(y)}L${f1(x + w)} ${f1(y + t)}`;
+      }
+      return d;
+    })();
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
     const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
@@ -416,7 +456,7 @@ ${opt.classic
 <g clip-path="url(#arcPanel)">
 <path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
 <path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
-<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/>
+<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".5" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
 <path d="${haScale}" fill="${C.line}" opacity=".75"/>
 ${text('label', 'E', W.cx - W.R + 46, W.cy + 24, 10, { attrs: `fill="${C.line}"` })}
