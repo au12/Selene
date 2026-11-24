@@ -187,14 +187,18 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 <path d="M452 -30H548V306Q548 322 532 322H468Q452 322 452 306Z" fill="#040506" opacity=".8"/>
 <path d="M452 -30V306Q452 322 468 322H532Q548 322 548 306V-30" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
 <path d="${ribs}" stroke="#000" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
-<path d="${ribs}" stroke="#fff" stroke-opacity=".055" stroke-width="1.6" stroke-linecap="round" transform="translate(0 4.5)"/>
-<path d="M244 610C244 462 274 374 312 344Q323 335 338 335H662Q677 335 688 344C726 374 756 462 756 610Z" fill="url(#lugG)"/>
+<path d="${ribs}" stroke="#fff" stroke-opacity=".055" stroke-width="1.6" stroke-linecap="round" transform="translate(0 4.5)"/>`;
+    const lugs = `<path d="M244 610C244 462 274 374 312 344Q323 335 338 335H662Q677 335 688 344C726 374 756 462 756 610Z" fill="url(#lugG)"/>
 <path d="M330 338.5H670" stroke="#fff" stroke-opacity=".13" stroke-width="2.5" stroke-linecap="round"/>
 <path d="M262 520C270 440 292 380 318 352" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="3" stroke-linecap="round"/>
 <circle cx="322" cy="366" r="6.5" fill="#020203"/><circle cx="322" cy="367.5" r="6.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.4"/>
 <circle cx="678" cy="366" r="6.5" fill="#020203"/><circle cx="678" cy="367.5" r="6.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.4"/>`;
     const Rm = (Rs - 2 + Ra + 16) / 2, Wm = Rs - 2 - (Ra + 16);
-    return `${svgOpen('body', vb, 'aria-label="Selene Arc watch"')}<defs>
+    // the band is its own layer, a little behind the displays, so it slides the most as the watch tilts
+    const band = `${svgOpen('band', vb, 'aria-hidden="true"')}<defs>
+<linearGradient id="strapG" x1="0" x2="1"><stop offset="0" stop-color="#040405"/><stop offset=".07" stop-color="#17191d"/><stop offset=".3" stop-color="#101114"/><stop offset=".7" stop-color="#0f1013"/><stop offset=".93" stop-color="#191b1f"/><stop offset="1" stop-color="#040405"/></linearGradient>
+</defs><g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g></svg>`;
+    return `${band}${svgOpen('body', vb, 'aria-label="Selene Arc watch"')}<defs>
 ${holeClip(cx, cy, Ra + 9)}
 <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
 <filter id="bb2" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
@@ -209,7 +213,7 @@ ${holeClip(cx, cy, Ra + 9)}
 <linearGradient id="steelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".45" stop-color="#aab1bb"/><stop offset="1" stop-color="#565c66"/></linearGradient>
 </defs><g clip-path="url(#bodyHole)">
 <ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#soft)"/>
-<g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g>
+<g>${lugs}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${lugs}</g>
 ${pusher('B', 200, cx, cy, Rc, 1.5)}${pusher('C', 160, cx, cy, Rc)}${pusher('D', -20, cx, cy, Rc)}${pusher('A', 20, cx, cy, Rc)}
 <circle cx="${cx}" cy="${cy}" r="${Rc}" fill="url(#caseG)"/>
 <circle cx="${cx}" cy="${cy}" r="${Rc - 1.5}" fill="none" stroke="url(#chamG)" stroke-width="3"/>

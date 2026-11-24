@@ -24,6 +24,7 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 /* stacked layers: body in flow, the rest laid exactly over it at their own depth */
 .device .L{position:absolute;left:0;top:0;height:100%;pointer-events:none;will-change:transform;backface-visibility:hidden}
 .device .L.body{position:relative;height:auto;pointer-events:auto}
+.device .band{transform:translateZ(-44px)}
 .device .dialwin{transform:translateZ(-36px)}
 .device .segs{transform:translateZ(-35px)}
 .device .dial{transform:translateZ(-14px)}
