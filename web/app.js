@@ -154,10 +154,10 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 </svg>`;
   }
 
-  // Shrouds are broad, low lobes on the case (about a quarter of the case radius wide, standing 35 proud of it), drawn
-  // over the pusher stem; the pusher's tip shows past the lobe by `tip` (12 normally, 3 when recessed).
-  function pusher(btn, ang, cx, cy, R, tip = 12) {
-    const x = cx + R, GE = 35, cx0 = x + GE + tip - 32; // cap runs 32 long and ends at x + GE + tip
+  // Shrouds are broad, low lobes on the case (about a quarter of the case radius wide, standing 17.5 proud of it), drawn
+  // over the pusher stem; the pusher's tip shows past the lobe by `tip` (6 normally, 1.5 when recessed).
+  function pusher(btn, ang, cx, cy, R, tip = 6) {
+    const x = cx + R, GE = 17.5, cx0 = x + GE + tip - 32; // cap runs 32 long and ends at x + GE + tip
     let knurl = '';
     for (let i = 0; i < 4; i++) knurl += `M${cx0 + 6 + i * 5} ${cy - 13}v26`;
     return `<g data-btn="${btn}" transform="rotate(${ang} ${cx} ${cy})" style="--px:-6px;--py:0px" role="button" aria-label="${BTN[btn]}">
@@ -165,8 +165,8 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 <g class="cap"><rect x="${cx0}" y="${cy - 15}" width="32" height="30" rx="6" fill="url(#steelV)"/>
 <path d="${knurl}" stroke="#000" stroke-opacity=".28" stroke-width="1.6"/>
 <rect x="${cx0 + 26}" y="${cy - 15}" width="6" height="30" rx="3" fill="#fff" opacity=".32"/></g>
-<rect x="${x - 30}" y="${cy - 55}" width="${GE + 30}" height="110" rx="32" fill="url(#guardG)"/>
-<rect x="${x - 30}" y="${cy - 55}" width="${GE + 30}" height="110" rx="32" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
+<rect x="${x - 46}" y="${cy - 55}" width="${GE + 46}" height="110" rx="30" fill="url(#guardG)"/>
+<rect x="${x - 46}" y="${cy - 55}" width="${GE + 46}" height="110" rx="30" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="2"/>
 <rect x="${x + GE - 4}" y="${cy - 19}" width="5" height="38" rx="2.5" fill="#000" opacity=".85"/>
 <rect x="${x - 30}" y="${cy - 58}" width="${GE + 60}" height="116" fill="transparent"/></g>`;
   }
@@ -203,7 +203,7 @@ ${holeClip(cx, cy, Ra + 9)}
 </defs><g clip-path="url(#bodyHole)">
 <ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#soft)"/>
 <g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g>
-${pusher('B', 200, cx, cy, Rc, 3)}${pusher('C', 160, cx, cy, Rc)}${pusher('D', -20, cx, cy, Rc)}${pusher('A', 20, cx, cy, Rc)}
+${pusher('B', 200, cx, cy, Rc, 1.5)}${pusher('C', 160, cx, cy, Rc)}${pusher('D', -20, cx, cy, Rc)}${pusher('A', 20, cx, cy, Rc)}
 <circle cx="${cx}" cy="${cy}" r="${Rc}" fill="url(#caseG)"/>
 <circle cx="${cx}" cy="${cy}" r="${Rc - 1.5}" fill="none" stroke="url(#chamG)" stroke-width="3"/>
 <circle cx="${cx}" cy="${cy}" r="${(Rc + Rs) / 2}" fill="none" stroke="url(#slopeG)" stroke-width="${Rc - Rs}"/>
