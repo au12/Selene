@@ -31,7 +31,7 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 .device:not(:has(.dialwin)) .dial{transform:translateZ(-22px)}
 .device:not(:has(.dialwin)) .segs{transform:translateZ(-21px)}
 .device .glass{transform:translateZ(6px)}
-.device .spec{transform:translateZ(9px)}
+.device .L.spec{transform:translateZ(9px)}
 .device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}
 .dome.lens .print{filter:url(#dome)}
 .device.clock svg{max-height:calc(100vh - 210px)}

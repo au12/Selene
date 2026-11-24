@@ -51,6 +51,13 @@ ceiling panel, a bare bulb and a strip light land as a thin crescent hugging the
 streak, and slide in and fatten as you turn the watch toward them, with faint hairline scratches catching the light
 around them. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
 
+It's built to stay light on a phone: turning the watch is a compositor-only transform, the reflection layer is
+just the size of the crystal with no filters or masks and is redrawn at most ~60 times a second, and nothing
+animates while the watch is still (the clock repaints once a second). Phone tilt comes from the gravity direction
+through a 1€ filter with a dead band, so sensor noise doesn't keep the page busy, and the motion sensor is released
+when the tab is hidden. *Settings → Tilt with mouse / phone* turns tilting off altogether. `node tools/bench_web.mjs`
+measures paint and raster time for a phone-sized page being wobbled.
+
 **The band and lugs are measured off a real watch.** Each strap has a narrow tab under the lug, two dimpled pads
 divided by grooved ribs, then the flat strap with its holes. The lugs are drawn as thin slices, each a little deeper
 than the last, so the depth runs smoothly from the case down into the band when the watch tilts.

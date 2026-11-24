@@ -40,7 +40,7 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 .device:not(:has(.dialwin)) .dial{transform:translateZ(-22px)}
 .device:not(:has(.dialwin)) .segs{transform:translateZ(-21px)}
 .device .glass{transform:translateZ(6px)}
-.device .spec{transform:translateZ(9px)}
+.device .L.spec{transform:translateZ(9px)}
 .device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}
 .dome.lens .print{filter:url(#dome)}
 .device.clock svg{max-height:calc(100vh - 210px)}
@@ -205,6 +205,7 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
       <label class="toggle">Segment ghosting<input type="checkbox" id="optGhost"></label>
       <label class="toggle">Segment shadows &amp; glow<input type="checkbox" id="optShadow"></label>
       <label class="toggle">Domed crystal<input type="checkbox" id="optDome"></label>
+      <label class="toggle">Tilt with mouse / phone<input type="checkbox" id="optTilt"></label>
       <label class="toggle">Authentic calculation delays<input type="checkbox" id="optAuth"></label>
       <div class="row"><button class="chip" id="sync">Sync to this device</button><button class="chip" id="lcdTest">LCD test</button><button class="chip" id="demo">Demo</button></div>
     </div>
@@ -1981,10 +1982,11 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 <linearGradient id="lipG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.lip[0]}"/><stop offset=".42" stop-color="${o.lip[1]}"/><stop offset=".6" stop-color="${o.lip[1]}"/><stop offset="1" stop-color="${o.lip[2]}"/></linearGradient>
 <linearGradient id="rimG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${o.rim}"/><stop offset=".36" stop-color="#fff" stop-opacity="0"/><stop offset=".64" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="${o.rim * 0.45}"/></linearGradient>
 <radialGradient id="wallG" gradientUnits="userSpaceOnUse" cx="${cx + 9}" cy="${cy + 13}" r="${Ra + 16}"><stop offset=".86" stop-color="#000" stop-opacity="0"/><stop offset=".95" stop-color="#000" stop-opacity="${o.wall * 0.45}"/><stop offset="1" stop-color="#000" stop-opacity="${o.wall}"/></radialGradient>
+<radialGradient id="hazeG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#d8dde6" stop-opacity="${(0.025 * o.spec).toFixed(3)}"/><stop offset=".7" stop-color="#d8dde6" stop-opacity="${(0.04 * o.spec).toFixed(3)}"/><stop offset="1" stop-color="#d8dde6" stop-opacity="${(0.1 * o.spec).toFixed(3)}"/></radialGradient>
 <radialGradient id="tintG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset=".55" stop-color="#9fc0ee" stop-opacity="0"/><stop offset=".84" stop-color="#9fc0ee" stop-opacity="${o.tint}"/><stop offset=".94" stop-color="#05070a" stop-opacity="${o.edge * 0.5}"/><stop offset="1" stop-color="#000" stop-opacity="${o.edge}"/></radialGradient>
 </defs>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 1}" fill="url(#wallG)"/>
-<g class="domeonly"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#tintG)"/>
+<g class="domeonly"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#tintG)"/><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#hazeG)"/>
 <circle cx="${cx}" cy="${cy}" r="${Ra - 11}" fill="none" stroke="url(#rimG)" stroke-width="1.2" opacity=".45"/></g>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 8}" fill="none" stroke="url(#lipG)" stroke-width="16"/>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 16}" fill="none" stroke="#000" stroke-opacity=".85" stroke-width="2"/>
@@ -2024,7 +2026,7 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
   // thin strip light off to the left that throws a narrow streak across the face when the watch turns toward it
   const ROOM = [
     { id: 'panel', dirs: rectDirs(dirAt(73, 262), [1, 0, 0], 0.55, 0.12, 24), a: 0.82 },
-    { id: 'bulb', dirs: discDirs(dirAt(64, 318), 4.6), a: 0.94 },
+    { id: 'bulb', c: dirAt(64, 318), dirs: discDirs(dirAt(64, 318), 4.6), a: 0.94 },
     { id: 'tube', dirs: rectDirs(dirAt(52, 186), [1, 0, 0], 0.014, 0.5, 20), a: 0.3 },
   ];
   /** Directions from the room into the frame of a device turned rotateY(ay) rotateX(ax) (CSS order), i.e. Rᵀ·w. */
@@ -2041,13 +2043,18 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
     }
     return d + 'Z';
   }
-  /** Redraw the reflections for a tilt (degrees about y and x, as applied to the device). */
+  /** Redraw the reflections for a tilt (degrees about y and x, as applied to the device). Only path data and one
+   *  gradient centre change, and the layer is no bigger than the crystal, so a redraw is cheap. */
   function updateSpec(root, ydeg, xdeg) {
     const svg = root.querySelector('svg.spec');
     if (!svg) return;
     const cx = +svg.dataset.cx, cy = +svg.dataset.cy, k = +svg.dataset.ra / Math.sin(DOME_SLOPE);
     const ay = ydeg * Math.PI / 180, ax = xdeg * Math.PI / 180, view = toDevice([0, 0, 1], ay, ax);
-    for (const L of ROOM) { const el = svg.querySelector(`[data-l="${L.id}"]`); if (el) el.setAttribute('d', reflectD(L.dirs, view, ay, ax, cx, cy, k)); }
+    if (!svg._els) svg._els = { scr: svg.querySelector('.scrG'), l: ROOM.map((L) => svg.querySelector(`[data-l="${L.id}"]`)) };
+    ROOM.forEach((L, i) => { const el = svg._els.l[i]; if (el) el.setAttribute('d', reflectD(L.dirs, view, ay, ax, cx, cy, k)); });
+    // the scratches catch the light around the bulb's reflection
+    const n = v3.norm(v3.add(toDevice(ROOM[1].c, ay, ax), view)), g = svg._els.scr;
+    if (g) { g.setAttribute('cx', (cx + k * n[0]).toFixed(1)); g.setAttribute('cy', (cy + k * n[1]).toFixed(1)); }
   }
   // fine hairline scratches in the crystal: almost invisible, they light up around a reflection the way wear on a
   // real crystal does (seeded, so every visit shows the same watch)
@@ -2062,23 +2069,20 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
     }
     return d;
   }
-  /** Reflections in the dome, sitting on the crystal and clipped to it. k scales the overall strength. */
+  /** Reflections in the dome: a layer just the size of the crystal, clipped to it, with no filters or masks (a phone
+   *  repaints it every frame while tilting). Strength falls off toward the middle through the fill gradient; the
+   *  glow round each light is a wide faint stroke. k scales the overall strength. */
   function specLayer(vb, cx, cy, Ra, k) {
-    const kk = (x) => +Math.min(1, x * k).toFixed(3), shapes = ROOM.map((L) => `<path data-l="${L.id}" fill-opacity="${kk(L.a)}"/>`).join('');
-    return `${svgOpen('spec', vb, `aria-hidden="true" data-cx="${cx}" data-cy="${cy}" data-ra="${Ra}"`)}<defs>
-<clipPath id="xtal"><circle cx="${cx}" cy="${cy}" r="${Ra - 2}"/></clipPath>
-<filter id="sEdge" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation=".7"/></filter>
-<filter id="sBloom" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
-<filter id="sNear" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="26"/></filter>
-<radialGradient id="hazeG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#d8dde6" stop-opacity="${kk(0.025)}"/><stop offset=".7" stop-color="#d8dde6" stop-opacity="${kk(0.04)}"/><stop offset="1" stop-color="#d8dde6" stop-opacity="${kk(0.1)}"/></radialGradient>
-<radialGradient id="fresG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#fff" stop-opacity=".62"/><stop offset=".55" stop-color="#fff" stop-opacity=".8"/><stop offset=".85" stop-color="#fff"/></radialGradient>
-<mask id="fresM" maskUnits="userSpaceOnUse" x="${cx - Ra}" y="${cy - Ra}" width="${2 * Ra}" height="${2 * Ra}"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#fresG)"/></mask>
-<mask id="scrM" maskUnits="userSpaceOnUse" x="${cx - Ra}" y="${cy - Ra}" width="${2 * Ra}" height="${2 * Ra}"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="#fff" fill-opacity=".14"/><g fill="#fff" filter="url(#sNear)"><use href="#lights"/></g></mask>
+    const kk = (x) => +Math.min(1, x * k).toFixed(3), [vx, vy, vw, vh] = vb.split(' ').map(Number), pc = (v, w) => (v / w * 100).toFixed(4);
+    const shapes = ROOM.map((L) => `<path data-l="${L.id}" fill="url(#fres${L.id})" stroke="#fff" stroke-opacity="${kk(L.a * 0.12)}" stroke-width="7" stroke-linejoin="round"/>`).join('');
+    const grads = ROOM.map((L) => `<radialGradient id="fres${L.id}" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#fff" stop-opacity="${kk(L.a * 0.62)}"/><stop offset=".55" stop-color="#fff" stop-opacity="${kk(L.a * 0.8)}"/><stop offset=".85" stop-color="#fff" stop-opacity="${kk(L.a)}"/></radialGradient>`).join('');
+    return `<svg class="L spec" viewBox="${cx - Ra} ${cy - Ra} ${2 * Ra} ${2 * Ra}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-cx="${cx}" data-cy="${cy}" data-ra="${Ra}" style="left:${pc(cx - Ra - vx, vw)}%;top:${pc(cy - Ra - vy, vh)}%;width:${pc(2 * Ra, vw)}%;height:${pc(2 * Ra, vh)}%"><defs>
+<clipPath id="xtal"><circle cx="${cx}" cy="${cy}" r="${Ra - 2}"/></clipPath>${grads}
+<radialGradient id="scrG" class="scrG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy - Ra}" r="${Ra * 0.42}"><stop offset="0" stop-color="#fff" stop-opacity="${kk(0.6)}"/><stop offset=".5" stop-color="#fff" stop-opacity="${kk(0.24)}"/><stop offset="1" stop-color="#fff" stop-opacity="${kk(0.09)}"/></radialGradient>
 </defs>
 <g clip-path="url(#xtal)">
-<circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#hazeG)"/>
-<path d="${scratchD(cx, cy, Ra, 70, 7)}" fill="none" stroke="#fff" stroke-opacity="${kk(0.75)}" stroke-width=".8" stroke-linecap="round" mask="url(#scrM)"/>
-<g mask="url(#fresM)" fill="#fff"><g filter="url(#sBloom)" opacity=".22"><use href="#lights"/></g><g id="lights" filter="url(#sEdge)">${shapes}</g></g>
+<path d="${scratchD(cx, cy, Ra, 70, 7)}" fill="none" stroke="url(#scrG)" stroke-width=".8" stroke-linecap="round"/>
+${shapes}
 </g></svg>`;
   }
 
@@ -2248,7 +2252,7 @@ ${pusher('B', 200, cx, cy, Rc, 1.5)}${pusher('C', 160, cx, cy, Rc)}${pusher('D',
 <path d="${arcD(cx, cy, Rm - 5, 30, 58)}" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="3.5" stroke-linecap="round" filter="url(#bb2)"/>
 </g></svg>
 ${dialLayers(vb, face, cx, cy, Rf)}
-${glassLayer(vb, cx, cy, Ra, { lip: ['#34373d', '#060607', '#1b1d21'], rim: 0.75, wall: 0.62, tint: 0.035, edge: 0.42 })}
+${glassLayer(vb, cx, cy, Ra, { lip: ['#34373d', '#060607', '#1b1d21'], rim: 0.75, wall: 0.62, tint: 0.035, edge: 0.42, spec: 1 })}
 ${specLayer(vb, cx, cy, Ra, 1)}`;
   }
   function clockLayers(face) {
@@ -2275,7 +2279,7 @@ ${holeClip(cx, cy, Ra + 9)}
 <circle cx="${cx}" cy="${cy}" r="426" fill="url(#ring)" opacity=".55"/>
 </g></svg>
 ${dialLayers(vb, face, cx, cy, Rf)}
-${glassLayer(vb, cx, cy, Ra, noir ? { lip: ['#23262b', '#050506', '#131518'], rim: 0.45, wall: 0.6, tint: 0.02, edge: 0.4 } : { lip: ['#4a3f2d', '#15110b', '#2c2418'], rim: 0.85, wall: 0.42, tint: 0.03, edge: 0.22 })}
+${glassLayer(vb, cx, cy, Ra, noir ? { lip: ['#23262b', '#050506', '#131518'], rim: 0.45, wall: 0.6, tint: 0.02, edge: 0.4, spec: 0.55 } : { lip: ['#4a3f2d', '#15110b', '#2c2418'], rim: 0.85, wall: 0.42, tint: 0.03, edge: 0.22, spec: 1.15 })}
 ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   }
 
@@ -2290,7 +2294,7 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     device.className = 'device ' + face.kind + (pal.negative ? ' neg' : '') + (lensOk ? ' lens' : '');
     device.innerHTML = face.kind === 'watch' ? watchLayers(face) : clockLayers(face);
     deviceSvg = device.querySelector('.segs');
-    applyTilt(cur[0], cur[1]);
+    applyTilt(cur[0], cur[1], true);
     const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     st.textContent = `.lcd{--g:${pal.lcdGhost}} .mg{--g:${pal.mgGhost}} .st{--g:${pal.stGhost}} .dyn .lcdl .s{fill:${pal.lcdOn}} .dyn .mgl .s{fill:${pal.mgOn}} .dyn .stl .s{fill:${pal.stOn}}`;
     device.querySelector('.dial').prepend(st.cloneNode(true)); deviceSvg.prepend(st);
@@ -2361,25 +2365,34 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   window.addEventListener('blur', () => [...pressed].forEach(up));
 
   // tilt: the layers sit at different depths, so turning the device slides the reflections over the dial
+  const opts = { ghost: store.get('ghost', true), shadow: store.get('shadow', true), dome: store.get('dome', true), tilt: store.get('tilt', true) };
+  let tiltListen = () => {};
   const wrap = $('.device-wrap');
   const still = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-  let tgt = [0, 0], cur = [0, 0], tiltRaf = 0, tiltT = 0;
-  function applyTilt(x, y) {
-    const ry = x * 11, rx = -y * 9;
+  // Easing runs on rAF only while the device is still moving, and stops once it settles. The reflections are redrawn
+  // only when the angle has changed enough to show; the turn itself is a compositor-only transform.
+  // On 120 Hz phones the reflections are redrawn at most ~60 times a second; the turn itself still runs every frame.
+  let tgt = [0, 0], cur = [0, 0], tiltRaf = 0, tiltT = 0, specAt = [1e9, 1e9], specT = 0;
+  function applyTilt(x, y, force) {
+    const ry = x * 11, rx = -y * 9, t = performance.now();
     device.style.transform = `rotateY(${ry.toFixed(2)}deg) rotateX(${rx.toFixed(2)}deg)`;
-    device.style.setProperty('--tx', x.toFixed(3)); device.style.setProperty('--ty', y.toFixed(3));
-    updateSpec(device, ry, rx);
+    if (force || (t - specT > 14 && Math.abs(ry - specAt[0]) + Math.abs(rx - specAt[1]) > 0.04)) {
+      specAt = [ry, rx]; specT = t; if (opts.dome) updateSpec(device, ry, rx);
+    }
   }
   function tiltStep(t) {
-    const a = 1 - Math.exp(-Math.min(64, t - tiltT) / 120); tiltT = t;
+    const a = 1 - Math.exp(-Math.min(64, t - tiltT) / 110); tiltT = t;
     cur = cur.map((c, i) => c + (tgt[i] - c) * a);
-    const done = Math.abs(tgt[0] - cur[0]) + Math.abs(tgt[1] - cur[1]) < 4e-4;
+    const done = Math.abs(tgt[0] - cur[0]) + Math.abs(tgt[1] - cur[1]) < 2e-3;
     if (done) cur = tgt.slice();
-    applyTilt(cur[0], cur[1]);
+    applyTilt(cur[0], cur[1], done);
     tiltRaf = done ? 0 : requestAnimationFrame(tiltStep);
   }
   function tilt(x, y) { // x, y in -1..1; eases toward the target
-    tgt = [Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))];
+    if (!opts.tilt) x = y = 0;
+    const t = [Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))];
+    if (Math.abs(t[0] - tgt[0]) + Math.abs(t[1] - tgt[1]) < 1e-3) return;
+    tgt = t;
     if (!tiltRaf) { tiltT = performance.now(); tiltRaf = requestAnimationFrame(tiltStep); }
   }
   if (!still && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
@@ -2389,14 +2402,33 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     });
     $('#stage').addEventListener('pointerleave', () => tilt(0, 0));
   } else if (!still && 'DeviceOrientationEvent' in window) {
-    // phones that report orientation without a permission prompt: tilt the phone, the crystal answers
-    let base = null;
-    window.addEventListener('deviceorientation', (e) => {
+    // Phones: tilt from the direction of gravity in the phone's own frame. Unlike the raw beta/gamma angles it doesn't
+    // flip when the phone is held upright. Sensor noise goes through a 1€ filter (steady when still, quick when
+    // moved), small wobbles under a dead band are ignored, and the "rest" pose drifts slowly toward how it's held.
+    const D = Math.PI / 180;
+    const oneEuro = (minCut, beta) => { let x = null, dx = 0, t0 = 0; return (v, t) => {
+      if (x === null) { x = v; t0 = t; return v; }
+      const dt = Math.max(1e-3, (t - t0) / 1000); t0 = t;
+      const al = (c) => 1 / (1 + 1 / (2 * Math.PI * c * dt));
+      dx += (((v - x) / dt) - dx) * al(1); x += (v - x) * al(minCut + beta * Math.abs(dx)); return x; }; };
+    const fx = oneEuro(0.6, 4), fy = oneEuro(0.6, 4);
+    let base = null, lastT = 0, out = [0, 0];
+    const onOrient = (e) => {
       if (e.gamma === null || e.beta === null) return;
-      if (!base) base = { g: e.gamma, b: e.beta };
-      base.g += (e.gamma - base.g) * 0.01; base.b += (e.beta - base.b) * 0.01; // slowly re-centre on how it is held
-      tilt((e.gamma - base.g) / 22, (e.beta - base.b) / 22);
-    });
+      const t = e.timeStamp || performance.now(), b = e.beta * D, g = e.gamma * D;
+      const gx = fx(-Math.cos(b) * Math.sin(g), t), gy = fy(Math.sin(b), t);
+      if (!base) { base = [gx, gy]; lastT = t; }
+      const k = 1 - Math.exp(-Math.min(500, t - lastT) / 9000); lastT = t; // re-centre over ~9 s
+      base[0] += (gx - base[0]) * k; base[1] += (gy - base[1]) * k;
+      const x = -(gx - base[0]) / 0.3, y = (gy - base[1]) / 0.3;
+      if (Math.abs(x - out[0]) + Math.abs(y - out[1]) < 0.012) return; // dead band
+      out = [x, y]; tilt(x, y);
+    };
+    let on = false;
+    const listen = (v) => { if (v === on) return; on = v; window[v ? 'addEventListener' : 'removeEventListener']('deviceorientation', onOrient); if (!v) { base = null; tilt(0, 0); } };
+    listen(!document.hidden && opts.tilt);
+    document.addEventListener('visibilitychange', () => listen(!document.hidden && opts.tilt));
+    tiltListen = listen;
   }
 
   // ------------------------------------------------------------------ render loop
@@ -2620,12 +2652,12 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     }, () => { $('#geo').textContent = 'Location unavailable'; setTimeout(() => { $('#geo').textContent = 'Use my location'; }, 2500); }, { timeout: 10000, maximumAge: 600000 });
   });
 
-  const opts = { ghost: store.get('ghost', true), shadow: store.get('shadow', true), dome: store.get('dome', true) };
   const bindToggle = (id, get, set) => { const el = $(id); el.checked = get(); el.addEventListener('change', () => { set(el.checked); applyOpts(); frame(); }); };
   bindToggle('#optSound', () => snd.on, (v) => { snd.on = v; store.set('sound', v); if (v) { snd.init(); snd.key(); } });
   bindToggle('#optGhost', () => opts.ghost, (v) => { opts.ghost = v; store.set('ghost', v); });
   bindToggle('#optShadow', () => opts.shadow, (v) => { opts.shadow = v; store.set('shadow', v); });
-  bindToggle('#optDome', () => opts.dome, (v) => { opts.dome = v; store.set('dome', v); });
+  bindToggle('#optDome', () => opts.dome, (v) => { opts.dome = v; store.set('dome', v); applyTilt(cur[0], cur[1], true); });
+  bindToggle('#optTilt', () => opts.tilt, (v) => { opts.tilt = v; store.set('tilt', v); tiltListen(v && !document.hidden); if (!v) tilt(0, 0); });
   bindToggle('#optAuth', () => !!mod.s.authentic, (v) => { mod.s.authentic = v; mod.save(); });
   const vol = $('#optVol'); vol.value = snd.vol; vol.addEventListener('input', () => { snd.setVol(+vol.value); store.set('vol', +vol.value); });
   vol.addEventListener('change', () => { snd.init(); snd.key(); });
