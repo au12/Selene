@@ -192,7 +192,7 @@ Full bill of materials, wiring and assembly: **[docs/BUILD.md](docs/BUILD.md)**.
 
 <p align="center"><img src="assets/face-arc.png" width="270" alt="Arc"> <img src="assets/face-desk.png" width="270" alt="Desk"> <img src="assets/face-noir.png" width="270" alt="Noir"></p>
 
-**Arc** — black watch dial, a wide, soft-shouldered night-sky panel as wide as the time display: gold moon and stars over a gold line-art mountain range.
+**Arc** — black watch dial, a wide, soft-shouldered night-sky panel as wide as the time display: gold moon and stars over a gold line-art Matterhorn-style peak, with the moon-position marker inside it.
 **Desk** — ivory clock dial with an LCD seconds ring, night sky over hills and an observatory.
 **Noir** — black night face with an amber negative LCD.
 

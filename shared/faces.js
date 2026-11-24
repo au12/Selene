@@ -329,11 +329,12 @@
     // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
     const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
-    const T = { rx: 208, ry: 136, cy: W.cy - 8 }; // hour-angle track
-    // mountain range along the horizon: [x, height above the horizon] break points, drawn as gold line art
-    const RANGE = [[-350, 0], [-318, 10], [-286, 6], [-246, 30], [-214, 18], [-178, 46], [-150, 34], [-118, 58], [-92, 40],
-      [-66, 52], [-30, 22], [4, 30], [40, 14], [78, 38], [104, 26], [140, 64], [170, 44], [196, 54], [232, 22], [262, 34],
-      [296, 12], [324, 18], [350, 0]];
+    const T = { rx: 64, ry: 64, cy: W.cy - 12 }; // hour-angle track: a small arc inside the mountain
+    // one Matterhorn-style peak in the middle: [x from centre, height above the horizon]. Steep east face, a summit
+    // hooked slightly to the left, a shoulder on the west ridge. The moon-position marker sits inside it.
+    const RANGE = [[-350, 0], [-196, 0], [-160, 14], [-128, 30], [-100, 50], [-78, 70], [-62, 90], [-50, 112], [-40, 134],
+      [-30, 152], [-20, 164], [-10, 171], [-3, 174], [4, 172], [9, 165], [14, 154], [22, 146], [34, 141], [46, 130],
+      [58, 110], [74, 86], [96, 60], [124, 36], [158, 16], [200, 0], [350, 0]];
     const ridge = (x) => { // horizon y under the ridge line at x
       const u = x - W.cx;
       for (let i = 1; i < RANGE.length; i++) if (u <= RANGE[i][0]) {
@@ -347,7 +348,7 @@
       sex: 186, swx: 814, sy: W.cy, sr: 12.5,
       nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starR: 6.4, starShape: star5D,
       starIn: (x, y) => Math.abs(x - W.cx) < W.R - 22 && y < ridge(x) - 18 && y > topY(x) + 16,
-      starAvoid: (x, y) => { const e = Math.hypot((x - W.cx) / T.rx, (y - T.cy) / T.ry); return e > 0.8 && e < 1.2; } };
+      starAvoid: () => false };
     const mg = moonGraph(G);
     // r0..r8: a small gold pointer under the horizon below each moon slot
     for (let k = 0; k < 9; k++) {
@@ -377,14 +378,14 @@
     }
     // hour-angle printed track: a pip under each marker position
     let haScale = '';
-    for (let k = 0; k < 13; k++) { const a = (180 - k * 15) * RAD; haScale += circleD(W.cx + T.rx * Math.cos(a), T.cy - T.ry * Math.sin(a), 1.7); }
+    for (let k = 0; k < 13; k++) { const a = (180 - k * 15) * RAD; haScale += circleD(W.cx + T.rx * Math.cos(a), T.cy - T.ry * Math.sin(a), 2); }
     const base = `C${W.cx + W.R} ${baseY - BR * 0.42} ${W.cx + W.R - BR * 0.42} ${baseY} ${W.cx + W.R - BR} ${baseY}H${W.cx - W.R + BR}C${W.cx - W.R + BR * 0.42} ${baseY} ${W.cx - W.R} ${baseY - BR * 0.42} ${W.cx - W.R} ${baseY - BR}Z`;
     let topD = '';
     for (let i = 1; i <= 120; i++) { const x = W.cx - W.R + (2 * W.R) * (0.5 - 0.5 * Math.cos(Math.PI * i / 120)); topD += `L${f1(x)} ${(i === 120 ? sideY : topY(x)).toFixed(2)}`; }
     const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
     const ridgeD = RANGE.map(([u, h], i) => `${i ? 'L' : 'M'}${W.cx + u} ${W.cy - h}`).join('');
     // a few slope lines inside the range, for depth
-    const slopesD = [[-178, 46, -150, 20], [-118, 58, -84, 18], [140, 64, 172, 26], [78, 38, 100, 12], [-246, 30, -226, 8]]
+    const slopesD = [[-3, 174, -16, 118], [-16, 118, -26, 92], [14, 154, 8, 120], [34, 141, 28, 112], [-62, 90, -54, 66], [74, 86, 66, 64]]
       .map(([x0, h0, x1, h1]) => `M${W.cx + x0} ${W.cy - h0}L${W.cx + x1} ${W.cy - h1}`).join('');
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
@@ -412,12 +413,12 @@ ${opt.classic
       text('label', 'LUNAR ARC', 500, 150, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
 <path d="${domeD}" fill="#030304"/>
 <g fill="${C.line}" opacity=".7">${starSvg}</g>
-<path d="${haScale}" fill="${C.line}" opacity=".5"/>
 <g clip-path="url(#arcPanel)">
 <path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
 <path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
 <path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
+<path d="${haScale}" fill="${C.line}" opacity=".75"/>
 ${text('label', 'E', W.cx - W.R + 46, W.cy + 24, 10, { attrs: `fill="${C.line}"` })}
 ${text('label', 'W', W.cx + W.R - 46, W.cy + 24, 10, { align: 'end', attrs: `fill="${C.line}"` })}
 <path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".75" stroke-width="2.2"/>
