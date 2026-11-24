@@ -179,49 +179,139 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
   }
 
 
+  // ---- band and lugs, after the original watch (measured off a photo; units are the drawing's, case radius 440) ----
+  const BAND_Z = 44; // px the band sits behind the case; matches .device .band in app.css
+  // Each strap, from the lug outward: a narrow tab, a wide dimpled pad, a joint, a second pad, a joint, the flat
+  // strap. hw: half-width at the lug end and the far end; dx: dimple offset from the centre line. Joints are a
+  // shadowed channel, a rounded rib and a thin groove, in that order down the picture on both straps (light from above).
+  const STRAP = [
+    { k: 'tab', len: 16, hw: [160, 160] },
+    { k: 'pad', len: 142, hw: [240, 236], dx: 157 },
+    { k: 'joint', len: 63 },
+    { k: 'pad', len: 136, hw: [224, 222], dx: 146 },
+    { k: 'joint', len: 63 },
+    { k: 'flat', len: 560, hw: [213, 213] }, // enough to reach the edge of a tall window; kept short for the GPU
+  ];
+  const LUG = { tip: 312, base: 452 }; // top lug: outer edge (at the band's depth), and where it meets the case (z 0)
+
+  // a concave dimple lit from the upper left: shadowed upper-left wall, lit lower-right wall, a light outer rim
+  const dimpleSvg = (x, y) => `<circle cx="${x}" cy="${y}" r="14.5" fill="none" stroke="url(#dimRim)" stroke-width="2.2"/><circle cx="${x}" cy="${y}" r="13" fill="url(#dimG)"/>
+<circle cx="${x + 1.2}" cy="${y + 1.2}" r="6.5" fill="#0b0c0e"/><path d="M${x + 3} ${y + 10.3}A10.8 10.8 0 0 0 ${x + 10.3} ${y + 3}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="1.6" stroke-linecap="round"/>`;
+
+  /** One strap. edge: y of the lug's outer edge; dir: -1 runs up, +1 runs down; holes: [distance, kind] on the flat part.
+   *  Returns [art, through-hole mask shapes]. */
+  function strapSvg(cx, edge, dir, holes) {
+    let y = edge, out = '', mask = '';
+    const els = STRAP.map((e) => { const a = y; y += dir * e.len; return { ...e, y0: Math.min(a, y), y1: Math.max(a, y) }; });
+    els.forEach((e, i) => { if (e.k === 'joint') e.hw = [Math.min(els[i - 1].hw[1], els[i + 1].hw[0])]; });
+    const X = (v) => +(cx + v).toFixed(1), line = (x0, x1, yy, o, w) => `<path d="M${X(x0)} ${yy}H${X(x1)}" stroke="#fff" stroke-opacity="${o}" stroke-width="${w}"/>`;
+    for (const e of els) {
+      const n = e.hw.length - 1, top = dir < 0 ? e.hw[n] : e.hw[0], bot = dir < 0 ? e.hw[0] : e.hw[n], y0 = e.y0, y1 = e.y1;
+      if (e.k === 'tab') {
+        // the tab runs on under the lug; beside it, between the pad and the lug, is the shadowed recess under the lug
+        const a = dir < 0 ? y0 : y0 - 18, b = dir < 0 ? y1 + 18 : y1, wide = els[1].hw[0] - 2;
+        out += `<rect x="${X(-wide)}" y="${y0}" width="${2 * wide}" height="${e.len}" fill="#050506"/>
+<rect x="${X(-top)}" y="${a}" width="${2 * top}" height="${b - a}" fill="url(#tabG)"/><rect x="${X(-top)}" y="${a}" width="${2 * top}" height="${b - a}" fill="url(#bandSide)"/>`;
+        if (dir > 0) out += `<rect x="${X(-top)}" y="${edge}" width="${2 * top}" height="6" fill="#000" fill-opacity=".45"/>`;
+      } else if (e.k === 'pad') {
+        const r = 7, d = `M${X(-top + r)} ${y0}H${X(top - r)}Q${X(top)} ${y0} ${X(top)} ${y0 + r}L${X(bot)} ${y1 - r}Q${X(bot)} ${y1} ${X(bot - r)} ${y1}H${X(-bot + r)}Q${X(-bot)} ${y1} ${X(-bot)} ${y1 - r}L${X(-top)} ${y0 + r}Q${X(-top)} ${y0} ${X(-top + r)} ${y0}Z`;
+        out += `<path d="${d}" fill="url(#padG)"/><path d="${d}" fill="url(#padSheen)"/><path d="${d}" fill="url(#bandSide)"/>${line(-top + 8, top - 8, y0 + 1.6, 0.16, 1.5)}
+<path d="${d}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="1.2"/>${dimpleSvg(X(-e.dx), (y0 + y1) / 2)}${dimpleSvg(X(e.dx), (y0 + y1) / 2)}`;
+      } else if (e.k === 'joint') {
+        const w = e.hw[0];
+        out += `<rect x="${X(-w + 6)}" y="${y0}" width="${2 * w - 12}" height="27.5" fill="url(#chanG)"/>
+<rect x="${X(-w + 1)}" y="${y0 + 27}" width="${2 * w - 2}" height="22" rx="9" fill="url(#ribG)"/><rect x="${X(-w + 1)}" y="${y0 + 27}" width="${2 * w - 2}" height="22" rx="9" fill="url(#bandSide)"/>
+${line(-w + 10, w - 10, y0 + 31.5, 0.2, 1.5)}<rect x="${X(-w + 5)}" y="${y0 + 48.5}" width="${2 * w - 10}" height="${y1 - y0 - 48.5}" fill="#060607"/>`;
+      } else { // flat strap: a slightly convex surface, with a soft sheen and the holes
+        const w = e.hw[0];
+        out += `<rect x="${X(-w)}" y="${y0}" width="${2 * w}" height="${y1 - y0}" rx="8" fill="url(#flatG)"/><rect x="${X(-w)}" y="${y0}" width="${2 * w}" height="${y1 - y0}" rx="8" fill="url(#bandSide)"/>
+<rect x="${X(-w)}" y="${y0}" width="${2 * w}" height="${y1 - y0}" rx="8" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="1.2"/>`;
+        if (dir > 0) out += line(-w + 8, w - 8, y0 + 1.6, 0.11, 1.4);
+        for (const [dist, kind] of holes) {
+          const hy = edge + dir * dist, rx = kind === 'oval' ? 50 : 19, ry = kind === 'oval' ? 28 : 19;
+          for (const hx of kind === 'oval' ? [0] : [-119, 119]) {
+            mask += `<ellipse cx="${X(hx)}" cy="${hy}" rx="${rx}" ry="${ry}" fill="#000"/>`;
+            out += `<ellipse cx="${X(hx)}" cy="${hy}" rx="${rx + 2}" ry="${ry + 2}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="3"/>
+<path d="M${X(hx - rx * 0.82)} ${hy + ry * 0.62}A${rx + 2} ${ry + 2} 0 0 0 ${X(hx + rx * 0.82)} ${hy + ry * 0.62}" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1.8" stroke-linecap="round"/>`;
+          }
+        }
+      }
+    }
+    return [out, mask];
+  }
+
+  function bandLayer(vb, cx, cy) {
+    const [t, tm] = strapSvg(cx, LUG.tip, -1, [[671, 'round']]);
+    const [b, bm] = strapSvg(cx, 2 * cy - LUG.tip, 1, [[679, 'round'], [763, 'oval'], [923, 'oval']]);
+    const reach = STRAP.reduce((n, e) => n + e.len, 0) + 4, my = LUG.tip - reach, mh = 2 * cy - 2 * LUG.tip + 2 * reach;
+    return `${svgOpen('band', vb, 'aria-hidden="true"')}<defs>
+<filter id="bandSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
+<linearGradient id="padG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2d32"/><stop offset=".055" stop-color="#1d1e22"/><stop offset=".3" stop-color="#18191d"/><stop offset=".86" stop-color="#121316"/><stop offset=".94" stop-color="#0c0d0f"/><stop offset="1" stop-color="#060607"/></linearGradient>
+<radialGradient id="padSheen" cx=".3" cy=".25" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".035"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<linearGradient id="dimG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#030304"/><stop offset=".55" stop-color="#0d0e10"/><stop offset="1" stop-color="#2a2c31"/></linearGradient>
+<linearGradient id="dimRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset=".5" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></linearGradient>
+<linearGradient id="bandSide" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".6"/><stop offset=".011" stop-color="#fff" stop-opacity=".17"/><stop offset=".032" stop-color="#fff" stop-opacity="0"/><stop offset=".968" stop-color="#fff" stop-opacity="0"/><stop offset=".989" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></linearGradient>
+<linearGradient id="chanG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#030304"/><stop offset=".7" stop-color="#070708"/><stop offset="1" stop-color="#0c0d0f"/></linearGradient>
+<linearGradient id="ribG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1d21"/><stop offset=".22" stop-color="#2e3035"/><stop offset=".5" stop-color="#1c1d21"/><stop offset="1" stop-color="#08090a"/></linearGradient>
+<linearGradient id="tabG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2e33"/><stop offset="1" stop-color="#1e2024"/></linearGradient>
+<linearGradient id="flatG" x1="0" x2="1"><stop offset="0" stop-color="#0d0e10"/><stop offset=".12" stop-color="#17181c"/><stop offset=".42" stop-color="#141519"/><stop offset=".5" stop-color="#191a1e"/><stop offset=".58" stop-color="#141519"/><stop offset=".88" stop-color="#17181c"/><stop offset="1" stop-color="#0d0e10"/></linearGradient>
+${lugArt(cx, cy, 1)}${lugArt(cx, cy, -1)}
+<mask id="bandHoles" maskUnits="userSpaceOnUse" x="${cx - 250}" y="${my}" width="500" height="${mh}"><rect x="${cx - 250}" y="${my}" width="500" height="${mh}" fill="#fff"/>${tm}${bm}</mask>
+</defs>
+<ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#bandSoft)"/>
+<g mask="url(#bandHoles)">${t}${b}</g></svg>`;
+  }
+
+  /** One lug's artwork (s: 1 = top, -1 = bottom, mirrored about the case centre), as a <g> the depth slices reuse.
+   *  Only the part outside the case is drawn. */
+  function lugArt(cx, cy, s) {
+    const id = s > 0 ? 't' : 'b', Y = (y) => +(cy + s * (y - cy)).toFixed(1);
+    const d = `M207 ${Y(470)}L218 ${Y(438)}L238 ${Y(336)}C238 ${Y(322.7)} 248.7 ${Y(312)} 262 ${Y(312)}H738C751.3 ${Y(312)} 762 ${Y(322.7)} 762 ${Y(336)}L782 ${Y(438)}L793 ${Y(470)}Z`;
+    const edge = `M241 ${Y(338)}C241 ${Y(325.3)} 250.4 ${Y(315)} 262 ${Y(315)}H738C749.6 ${Y(315)} 759 ${Y(325.3)} 759 ${Y(338)}`;
+    // the top lug's face tilts toward the light and reads lighter; the bottom one tilts away
+    const face = s > 0 ? ['#26282d', '#17181b', '#0c0d0f'] : ['#16171a', '#101114', '#0a0b0c'];
+    return `<clipPath id="lugOut${id}"><path clip-rule="evenodd" d="M0 -200H1000V1800H0ZM${cx - 437} ${cy}a437 437 0 1 0 874 0a437 437 0 1 0 -874 0Z"/></clipPath>
+<linearGradient id="lugF${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${Y(312)}" x2="0" y2="${Y(470)}"><stop offset="0" stop-color="${face[0]}"/><stop offset=".2" stop-color="${face[1]}"/><stop offset="1" stop-color="${face[2]}"/></linearGradient>
+<linearGradient id="lugH${id}" gradientUnits="userSpaceOnUse" x1="238" y1="0" x2="762" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".06"/><stop offset=".3" stop-color="#fff" stop-opacity=".012"/><stop offset=".7" stop-color="#000" stop-opacity=".1"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>
+<linearGradient id="lugE${id}" gradientUnits="userSpaceOnUse" x1="238" y1="0" x2="762" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="${s > 0 ? 0.34 : 0.13}"/><stop offset=".45" stop-color="#fff" stop-opacity="${s > 0 ? 0.13 : 0.05}"/><stop offset="1" stop-color="#fff" stop-opacity="${s > 0 ? 0.07 : 0.03}"/></linearGradient>
+<filter id="lugSoft${id}" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="3"/></filter>
+<g id="lugArt${id}" clip-path="url(#lugOut${id})">
+<path d="${d}" fill="url(#lugF${id})"/><path d="${d}" fill="url(#lugH${id})"/>
+<path d="${edge}" fill="none" stroke="url(#lugE${id})" stroke-width="1.7" stroke-linecap="round"/>
+<path d="M240.4 ${Y(342)}L220.6 ${Y(434)}" stroke="#fff" stroke-opacity="${s > 0 ? 0.09 : 0.04}" stroke-width="2" stroke-linecap="round"/>
+${s > 0 ? `<ellipse cx="300" cy="${Y(327)}" rx="46" ry="6" fill="#fff" fill-opacity=".11" filter="url(#lugSoft${id})"/>` : ''}
+<path d="${d}" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="1.2"/></g>`;
+  }
+  /** The lugs as thin horizontal slices, each a small layer a little deeper than the one nearer the case: depth runs
+   *  from the case (z 0, at LUG.base) to the band (z -BAND_Z, at the lug's outer edge) in ~3 px steps, too fine to see.
+   *  Parallel slices never intersect the other layers, which keeps every browser's 3D sorting simple. */
+  function lugSlices(vb, cy) {
+    const [, vy, , vh] = vb.split(' ').map(Number), N = 14, y0 = LUG.tip - 3, h = (LUG.base - y0) / N;
+    let out = '';
+    for (let k = 0; k < N; k++) {
+      const a = y0 + k * h, z = -BAND_Z * Math.min(1, (LUG.base - (a + h / 2)) / (LUG.base - LUG.tip));
+      for (const [id, top] of [['t', a], ['b', 2 * cy - a - h]]) {
+        const t = top - 0.6, hh = h + 1.2; // a little overlap hides the seams between slices
+        out += `<svg class="L lug" viewBox="195 ${t.toFixed(2)} 610 ${hh.toFixed(2)}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="left:19.5%;top:${((t - vy) / vh * 100).toFixed(4)}%;width:61%;height:${(hh / vh * 100).toFixed(4)}%;overflow:hidden;transform:translateZ(${z.toFixed(2)}px)"><use href="#lugArt${id}"/></svg>`;
+      }
+    }
+    return out;
+  }
+
   function watchLayers(face) {
     const vb = '0 240 1000 1080', cx = 500, cy = 780, Rc = 440, Ra = 356, Rf = 368, Rs = Rc - 30;
-    // band in the original's style: smooth glossy resin, broad segments with bevelled joints and a small dimple near
-    // each edge of every segment (drawn for the top strap; the bottom one is its mirror image)
-    let joints = '', jointHi = '', dimples = '';
-    for (const y of [74, 151, 228, 306]) { joints += `M298 ${y}H702`; jointHi += `M298 ${y + 3.2}H702`; }
-    for (const y of [36, 112, 190, 267]) for (const x of [334, 666]) dimples += `<circle cx="${x}" cy="${y}" r="4.6" fill="#030304"/><circle cx="${x}" cy="${y + 1.2}" r="4.6" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="1.1"/>`;
-    const strap = `<path d="M298 -30H702L706 360H294Z" fill="url(#strapG)"/>
-<path d="M298 -30H702L706 360H294Z" fill="url(#strapGloss)"/>
-<path d="${joints}" stroke="#000" stroke-opacity=".75" stroke-width="3.6"/>
-<path d="${jointHi}" stroke="#fff" stroke-opacity=".07" stroke-width="1.4"/>
-${dimples}`;
-    const lugs = `<path d="M244 610C244 462 274 374 312 344Q323 335 338 335H662Q677 335 688 344C726 374 756 462 756 610Z" fill="url(#lugG)"/>
-<path d="M330 338.5H670" stroke="#fff" stroke-opacity=".13" stroke-width="2.5" stroke-linecap="round"/>
-<path d="M262 520C270 440 292 380 318 352" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="3" stroke-linecap="round"/>`;
     const Rm = (Rs - 2 + Ra + 16) / 2, Wm = Rs - 2 - (Ra + 16);
-    // the band is its own layer, a little behind the displays, so it slides the most as the watch tilts
-    const band = `${svgOpen('band', vb, 'aria-hidden="true"')}<defs>
-<linearGradient id="strapG" x1="0" x2="1"><stop offset="0" stop-color="#030304"/><stop offset=".06" stop-color="#141519"/><stop offset=".3" stop-color="#0c0d10"/><stop offset=".7" stop-color="#0b0c0e"/><stop offset=".94" stop-color="#16171b"/><stop offset="1" stop-color="#030304"/></linearGradient>
-<linearGradient id="strapGloss" x1="0" x2="1"><stop offset=".08" stop-color="#fff" stop-opacity="0"/><stop offset=".15" stop-color="#fff" stop-opacity=".1"/><stop offset=".2" stop-color="#fff" stop-opacity=".02"/><stop offset=".78" stop-color="#fff" stop-opacity="0"/><stop offset=".86" stop-color="#fff" stop-opacity=".05"/><stop offset=".92" stop-color="#fff" stop-opacity="0"/></linearGradient>
-</defs><g>${strap}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${strap}</g></svg>`;
-    // lugs: drawn in slices across the strip where they meet the band, each a little deeper toward the band, so the
-    // lugs carry the parallax from the case (0) down to the band (-44). Slices overlap by a few units to hide seams.
-    const lugCuts = [[300, 348, -40], [345, 362, -31], [359, 376, -22], [373, 392, -13], [389, 430, -5]];
-    const lugLayers = lugCuts.map(([y0, y1, z], k) => `${svgOpen('lug', vb, `aria-hidden="true" style="transform:translateZ(${z}px)"`)}<defs>
-<linearGradient id="lugG${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24262b"/><stop offset=".12" stop-color="#131417"/><stop offset="1" stop-color="#0a0b0d"/></linearGradient>
-<clipPath id="lugCut${k}"><rect x="0" y="${y0}" width="1000" height="${y1 - y0}"/><rect x="0" y="${2 * cy - y1}" width="1000" height="${y1 - y0}"/></clipPath></defs>
-<g clip-path="url(#lugCut${k})"><g>${lugs.replace(/url\(#lugG\)/g, `url(#lugG${k})`)}</g><g transform="translate(0 ${2 * cy}) scale(1 -1)">${lugs.replace(/url\(#lugG\)/g, `url(#lugG${k})`)}</g></g></svg>`).join('');
-    return `${band}${lugLayers}${svgOpen('body', vb, 'aria-label="Selene Arc watch"')}<defs>
+    return `${bandLayer(vb, cx, cy)}${lugSlices(vb, cy)}${svgOpen('body', vb, 'aria-label="Selene Arc watch"')}<defs>
 ${holeClip(cx, cy, Ra + 9)}
-<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
 <filter id="bb2" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
 <filter id="bb9" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
 <linearGradient id="slopeG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3d43"/><stop offset=".3" stop-color="#17181b"/><stop offset=".62" stop-color="#0b0c0d"/><stop offset="1" stop-color="#1c1e21"/></linearGradient>
-<linearGradient id="strapG" x1="0" x2="1"><stop offset="0" stop-color="#040405"/><stop offset=".07" stop-color="#17191d"/><stop offset=".3" stop-color="#101114"/><stop offset=".7" stop-color="#0f1013"/><stop offset=".93" stop-color="#191b1f"/><stop offset="1" stop-color="#040405"/></linearGradient>
-<linearGradient id="lugG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24262b"/><stop offset=".12" stop-color="#131417"/><stop offset="1" stop-color="#0a0b0d"/></linearGradient>
 <linearGradient id="guardG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d1f23"/><stop offset=".5" stop-color="#0e0f11"/><stop offset="1" stop-color="#060607"/></linearGradient>
 <radialGradient id="caseG" cx="38%" cy="28%" r="80%"><stop offset="0" stop-color="#26282d"/><stop offset=".55" stop-color="#111215"/><stop offset="1" stop-color="#060607"/></radialGradient>
 <linearGradient id="chamG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".3" stop-color="#fff" stop-opacity=".03"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".12"/></linearGradient>
 <linearGradient id="glossG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".17"/><stop offset=".28" stop-color="#fff" stop-opacity=".015"/><stop offset=".72" stop-color="#fff" stop-opacity=".01"/><stop offset="1" stop-color="#fff" stop-opacity=".09"/></linearGradient>
 <linearGradient id="steelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".45" stop-color="#aab1bb"/><stop offset="1" stop-color="#565c66"/></linearGradient>
 </defs><g clip-path="url(#bodyHole)">
-<ellipse cx="${cx + 14}" cy="${cy + 46}" rx="452" ry="480" fill="#000" opacity=".6" filter="url(#soft)"/>
 ${pusher('B', 200, cx, cy, Rc, 1.5)}${pusher('C', 160, cx, cy, Rc)}${pusher('D', -20, cx, cy, Rc)}${pusher('A', 20, cx, cy, Rc)}
 <circle cx="${cx}" cy="${cy}" r="${Rc}" fill="url(#caseG)"/>
 <circle cx="${cx}" cy="${cy}" r="${Rc - 1.5}" fill="none" stroke="url(#chamG)" stroke-width="3"/>

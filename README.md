@@ -48,6 +48,10 @@ marker lapping 24 steps while the phase advances every second tick, timekeeping 
 (or tilt a phone that reports orientation) and the reflections slide over the dial while the dial shifts under the
 bezel. The dome also stretches the print near the rim. *Settings → Domed crystal* switches it off.
 
+**The band and lugs are measured off a real watch.** Each strap has a narrow tab under the lug, two dimpled pads
+divided by grooved ribs, then the flat strap with its holes. The lugs are drawn as thin slices, each a little deeper
+than the last, so the depth runs smoothly from the case down into the band when the watch tilts.
+
 **Dial print.** *Settings → Dial print* switches the watch between the modern Selene type and a classic print: a
 heavy sans name over a gold serif line, with darker LCD ghosting. Both keep the original's spec lines under the
 display (yellow water rating, blue function line, small origin mark).
