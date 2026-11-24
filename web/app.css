@@ -19,7 +19,7 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 /* ------------------------------------------------ stage */
 .stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px 28px;min-height:100vh;gap:18px;overflow:hidden}
 .device-wrap{perspective:1400px;width:min(100%,560px)}
-.device{position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
+.device{position:relative;transform-style:preserve-3d;will-change:transform}
 .device svg{display:block;width:100%;height:auto;overflow:visible}
 /* stacked layers: body in flow, the rest laid exactly over it at their own depth */
 .device .L{position:absolute;left:0;top:0;height:100%;pointer-events:none;will-change:transform;backface-visibility:hidden}
@@ -31,9 +31,8 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 .device:not(:has(.dialwin)) .dial{transform:translateZ(-22px)}
 .device:not(:has(.dialwin)) .segs{transform:translateZ(-21px)}
 .device .glass{transform:translateZ(6px)}
-.device .specwrap{width:100%;transform:translateZ(40px)}
-.device .specwrap .spec{display:block;width:100%;height:auto;transform:translate(calc(var(--tx,0)*-2.4%),calc(var(--ty,0)*-2.4%));transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
-.device:not(.dome) .specwrap,.device:not(.dome) .domeonly{display:none}
+.device .spec{transform:translateZ(9px)}
+.device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}
 .dome.lens .print{filter:url(#dome)}
 .device.clock svg{max-height:calc(100vh - 210px)}
 .device.watch svg{max-height:calc(100vh - 150px)}
@@ -144,4 +143,3 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
   .device-wrap{width:min(100%,520px)}
   .pbtn{min-width:calc(50% - 6px);flex:1}
 }
-@media (prefers-reduced-motion:reduce){.device,.device .specwrap .spec{transition:none}}

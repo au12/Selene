@@ -28,7 +28,7 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 /* ------------------------------------------------ stage */
 .stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px 28px;min-height:100vh;gap:18px;overflow:hidden}
 .device-wrap{perspective:1400px;width:min(100%,560px)}
-.device{position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
+.device{position:relative;transform-style:preserve-3d;will-change:transform}
 .device svg{display:block;width:100%;height:auto;overflow:visible}
 /* stacked layers: body in flow, the rest laid exactly over it at their own depth */
 .device .L{position:absolute;left:0;top:0;height:100%;pointer-events:none;will-change:transform;backface-visibility:hidden}
@@ -40,9 +40,8 @@ header.top .tag{font-size:11px;letter-spacing:.24em;color:var(--mute);text-trans
 .device:not(:has(.dialwin)) .dial{transform:translateZ(-22px)}
 .device:not(:has(.dialwin)) .segs{transform:translateZ(-21px)}
 .device .glass{transform:translateZ(6px)}
-.device .specwrap{width:100%;transform:translateZ(40px)}
-.device .specwrap .spec{display:block;width:100%;height:auto;transform:translate(calc(var(--tx,0)*-2.4%),calc(var(--ty,0)*-2.4%));transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
-.device:not(.dome) .specwrap,.device:not(.dome) .domeonly{display:none}
+.device .spec{transform:translateZ(9px)}
+.device:not(.dome) .spec,.device:not(.dome) .domeonly{display:none}
 .dome.lens .print{filter:url(#dome)}
 .device.clock svg{max-height:calc(100vh - 210px)}
 .device.watch svg{max-height:calc(100vh - 150px)}
@@ -149,7 +148,6 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
 .device-wrap{width:min(100%,520px)}
 .pbtn{min-width:calc(50% - 6px);flex:1}
 }
-@media (prefers-reduced-motion:reduce){.device,.device .specwrap .spec{transition:none}}
 </style>
 </head>
 <body>
@@ -1983,13 +1981,10 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 <linearGradient id="lipG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.lip[0]}"/><stop offset=".42" stop-color="${o.lip[1]}"/><stop offset=".6" stop-color="${o.lip[1]}"/><stop offset="1" stop-color="${o.lip[2]}"/></linearGradient>
 <linearGradient id="rimG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${o.rim}"/><stop offset=".36" stop-color="#fff" stop-opacity="0"/><stop offset=".64" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="${o.rim * 0.45}"/></linearGradient>
 <radialGradient id="wallG" gradientUnits="userSpaceOnUse" cx="${cx + 9}" cy="${cy + 13}" r="${Ra + 16}"><stop offset=".86" stop-color="#000" stop-opacity="0"/><stop offset=".95" stop-color="#000" stop-opacity="${o.wall * 0.45}"/><stop offset="1" stop-color="#000" stop-opacity="${o.wall}"/></radialGradient>
-<linearGradient id="fresG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${o.rim * 0.34}"/><stop offset=".3" stop-color="#fff" stop-opacity="${o.rim * 0.05}"/><stop offset=".7" stop-color="#fff" stop-opacity="${o.rim * 0.04}"/><stop offset="1" stop-color="#fff" stop-opacity="${o.rim * 0.22}"/></linearGradient>
 <radialGradient id="tintG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset=".55" stop-color="#9fc0ee" stop-opacity="0"/><stop offset=".84" stop-color="#9fc0ee" stop-opacity="${o.tint}"/><stop offset=".94" stop-color="#05070a" stop-opacity="${o.edge * 0.5}"/><stop offset="1" stop-color="#000" stop-opacity="${o.edge}"/></radialGradient>
 </defs>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 1}" fill="url(#wallG)"/>
 <g class="domeonly"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#tintG)"/>
-<path d="${arcD(cx, cy, Ra - 24, 15, 75)}" fill="none" stroke="#fff3d6" stroke-opacity="${o.rim * 0.09}" stroke-width="16" stroke-linecap="round" filter="url(#gb7)"/>
-<circle cx="${cx}" cy="${cy}" r="${Ra - 5}" fill="none" stroke="url(#fresG)" stroke-width="7" filter="url(#gb3)"/>
 <circle cx="${cx}" cy="${cy}" r="${Ra - 11}" fill="none" stroke="url(#rimG)" stroke-width="1.2" opacity=".45"/></g>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 8}" fill="none" stroke="url(#lipG)" stroke-width="16"/>
 <circle cx="${cx}" cy="${cy}" r="${Ra + 16}" fill="none" stroke="#000" stroke-opacity=".85" stroke-width="2"/>
@@ -1998,64 +1993,93 @@ ${svgOpen('segs', vb, 'aria-hidden="true"')}<defs>${clip('segClip')}
 </svg>`;
   }
   // ---- the domed crystal as a convex mirror ----
-  // A scene direction d reflects off the dome where the surface normal bisects d and the view axis; seen head-on, that
-  // point sits at Rs·n_xy on screen (Rs = sphere radius = Ra / sin α, α = slope at the rim). Straight window edges
-  // therefore come out curved and squeezed toward the rim, the way a camera lens shows a room.
+  // A light in direction l reflects off the dome where the surface normal bisects l and the view direction v; seen
+  // head-on, that point sits at Rs·n_xy (Rs = sphere radius = Ra / sin α, α = slope at the rim). So a room light far
+  // off to the side lands squeezed into a thin crescent along the rim, and as the watch turns toward it, it slides in
+  // and fattens into a bright bean. Lights are fixed in the room; turning the device moves both l and v in its frame,
+  // so the reflections are recomputed every frame from the tilt rather than slid around as a picture.
   const DOME_SLOPE = 34 * Math.PI / 180;
-  const v3 = { add: (a, b) => a.map((x, i) => x + b[i]), mul: (a, k) => a.map((x) => x * k), norm: (a) => { const l = Math.hypot(...a); return a.map((x) => x / l); },
+  const v3 = { add: (a, b) => a.map((x, i) => x + b[i]), mul: (a, k) => a.map((x) => x * k), dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    norm: (a) => { const l = Math.hypot(...a); return a.map((x) => x / l); },
     cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]] };
+  // room directions: x right, y down, z toward the viewer; polar from the view axis, azimuth clockwise from 3 o'clock
   const dirAt = (polar, az) => { const p = polar * Math.PI / 180, z = az * Math.PI / 180; return [Math.sin(p) * Math.cos(z), Math.sin(p) * Math.sin(z), Math.cos(p)]; };
-  function domePt(cx, cy, Ra, P) { // scene point (x right, y down, z toward the viewer) → screen point
-    const d = v3.norm(P), n = v3.norm([d[0], d[1], d[2] + 1]), k = Ra / Math.sin(DOME_SLOPE);
-    return [cx + k * n[0], cy + k * n[1]];
-  }
-  /** Reflection of a flat rectangle facing the watch: centre direction c, half-sizes hu, hv (radians-ish), split into
-   *  cols × rows panes with mullions of width gap. Returns one path per pane. */
-  function windowPanes(cx, cy, Ra, c, hu, hv, cols, rows, gap) {
-    const U = v3.norm(v3.cross(c, [0, 0, 1])), V = v3.norm(v3.cross(U, c)), out = [];
-    const at = (a, b) => domePt(cx, cy, Ra, v3.add(c, v3.add(v3.mul(U, a), v3.mul(V, b))));
-    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
-      const a0 = -hu + (2 * hu) * i / cols + (i ? gap / 2 : 0), a1 = -hu + (2 * hu) * (i + 1) / cols - (i < cols - 1 ? gap / 2 : 0);
-      const b0 = -hv + (2 * hv) * j / rows + (j ? gap / 2 : 0), b1 = -hv + (2 * hv) * (j + 1) / rows - (j < rows - 1 ? gap / 2 : 0);
-      const pts = [], N = 14;
-      for (let t = 0; t <= N; t++) pts.push(at(a0 + (a1 - a0) * t / N, b0));
-      for (let t = 0; t <= N; t++) pts.push(at(a1, b0 + (b1 - b0) * t / N));
-      for (let t = 0; t <= N; t++) pts.push(at(a1 - (a1 - a0) * t / N, b1));
-      for (let t = 0; t <= N; t++) pts.push(at(a0, b1 - (b1 - b0) * t / N));
-      out.push('M' + pts.map((p) => `${n1(p[0])} ${n1(p[1])}`).join('L') + 'Z');
+  /** The room's lights, as outlines of directions. A rectangle: centre c, unit width axis u (in the room), half-sizes
+   *  in radians; a disc: centre c and angular radius. Each comes back as a closed ring of directions. */
+  function rectDirs(c, u, hu, hv, N = 18) { // a rounded rectangle (superellipse), sampled 4N times around
+    const U = v3.norm(v3.add(u, v3.mul(c, -v3.dot(u, c)))), V = v3.cross(c, U), out = [], e = 2 / 5;
+    for (let i = 0; i < 4 * N; i++) {
+      const t = i / (4 * N) * 2 * Math.PI, co = Math.cos(t), si = Math.sin(t);
+      const a = hu * Math.sign(co) * Math.abs(co) ** e, b = hv * Math.sign(si) * Math.abs(si) ** e;
+      out.push(v3.norm(v3.add(c, v3.add(v3.mul(U, a), v3.mul(V, b)))));
     }
     return out;
   }
-  /** Reflections in the dome; this layer floats above the glass and slides as the device tilts. Reflections grow
-   *  stronger toward the rim (Fresnel) and stay faint over the middle of the face. k scales the overall strength. */
+  function discDirs(c, r, N = 40) {
+    const U = v3.norm(v3.cross(c, [0, 0, 1])), V = v3.cross(c, U), t = Math.tan(r * Math.PI / 180), out = [];
+    for (let i = 0; i < N; i++) { const a = i / N * 2 * Math.PI; out.push(v3.norm(v3.add(c, v3.add(v3.mul(U, t * Math.cos(a)), v3.mul(V, t * Math.sin(a)))))); }
+    return out;
+  }
+  // a dim room (like the photo): a big ceiling panel up and a little to the left, a bare bulb up to the right, and a
+  // thin strip light off to the left that throws a narrow streak across the face when the watch turns toward it
+  const ROOM = [
+    { id: 'panel', dirs: rectDirs(dirAt(73, 262), [1, 0, 0], 0.55, 0.12, 24), a: 0.82 },
+    { id: 'bulb', dirs: discDirs(dirAt(64, 318), 4.6), a: 0.94 },
+    { id: 'tube', dirs: rectDirs(dirAt(52, 186), [1, 0, 0], 0.014, 0.5, 20), a: 0.3 },
+  ];
+  /** Directions from the room into the frame of a device turned rotateY(ay) rotateX(ax) (CSS order), i.e. Rᵀ·w. */
+  function toDevice(w, ay, ax) {
+    const cy = Math.cos(ay), sy = Math.sin(ay), cx = Math.cos(ax), sx = Math.sin(ax);
+    const a = [cy * w[0] - sy * w[2], w[1], sy * w[0] + cy * w[2]];
+    return [a[0], cx * a[1] + sx * a[2], -sx * a[1] + cx * a[2]];
+  }
+  function reflectD(dirs, view, ay, ax, cx, cy, k) {
+    let d = '';
+    for (let i = 0; i < dirs.length; i++) {
+      const n = v3.norm(v3.add(toDevice(dirs[i], ay, ax), view));
+      d += `${i ? 'L' : 'M'}${(cx + k * n[0]).toFixed(1)} ${(cy + k * n[1]).toFixed(1)}`;
+    }
+    return d + 'Z';
+  }
+  /** Redraw the reflections for a tilt (degrees about y and x, as applied to the device). */
+  function updateSpec(root, ydeg, xdeg) {
+    const svg = root.querySelector('svg.spec');
+    if (!svg) return;
+    const cx = +svg.dataset.cx, cy = +svg.dataset.cy, k = +svg.dataset.ra / Math.sin(DOME_SLOPE);
+    const ay = ydeg * Math.PI / 180, ax = xdeg * Math.PI / 180, view = toDevice([0, 0, 1], ay, ax);
+    for (const L of ROOM) { const el = svg.querySelector(`[data-l="${L.id}"]`); if (el) el.setAttribute('d', reflectD(L.dirs, view, ay, ax, cx, cy, k)); }
+  }
+  // fine hairline scratches in the crystal: almost invisible, they light up around a reflection the way wear on a
+  // real crystal does (seeded, so every visit shows the same watch)
+  function scratchD(cx, cy, Ra, n, seed) {
+    let s = seed >>> 0; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    let d = '';
+    for (let i = 0; i < n; i++) {
+      const r = Ra * 0.95 * Math.sqrt(rnd()), t = rnd() * 2 * Math.PI, x = cx + r * Math.cos(t), y = cy + r * Math.sin(t);
+      const ang = (rnd() < 0.7 ? -32 + (rnd() - 0.5) * 34 : rnd() * 180) * Math.PI / 180, len = 14 + rnd() * rnd() * 150, bow = (rnd() - 0.5) * len * 0.25;
+      const dx = Math.cos(ang) * len / 2, dy = Math.sin(ang) * len / 2;
+      d += `M${n1(x - dx)} ${n1(y - dy)}Q${n1(x - dy * bow / len * 2)} ${n1(y + dx * bow / len * 2)} ${n1(x + dx)} ${n1(y + dy)}`;
+    }
+    return d;
+  }
+  /** Reflections in the dome, sitting on the crystal and clipped to it. k scales the overall strength. */
   function specLayer(vb, cx, cy, Ra, k) {
-    const win = windowPanes(cx, cy, Ra, dirAt(53, 229), 0.25, 0.18, 3, 2, 0.026);       // the main window, upper left
-    const win2 = windowPanes(cx, cy, Ra, dirAt(63, 336), 0.09, 0.3, 1, 1, 0);        // a narrow one to the right
-    const lamp = domePt(cx, cy, Ra, dirAt(61, 223)), glint = domePt(cx, cy, Ra, dirAt(62, 50));
-    const kk = (x) => +(x * k).toFixed(3);
-    // the frame is fixed to the crystal (a circular clip), the reflections inside slide as the watch tilts
-    const [vx, vy, vw, vh] = vb.split(' ').map(Number), pr = (Ra - 2) / (Math.hypot(vw, vh) / Math.SQRT2) * 100;
-    return `<div class="L specwrap" style="clip-path:circle(${pr.toFixed(3)}% at ${((cx - vx) / vw * 100).toFixed(3)}% ${((cy - vy) / vh * 100).toFixed(3)}%)"><svg class="spec" viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
-<filter id="sb1" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.1"/></filter>
-<filter id="sb4" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
-<filter id="sb14" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
-<radialGradient id="fresnel" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset=".3" stop-color="#fff" stop-opacity=".12"/><stop offset=".62" stop-color="#fff" stop-opacity=".38"/><stop offset=".86" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff"/></radialGradient>
-<mask id="specMask" maskUnits="userSpaceOnUse" x="${cx - Ra - 60}" y="${cy - Ra - 60}" width="${2 * Ra + 120}" height="${2 * Ra + 120}"><circle cx="${cx}" cy="${cy}" r="${Ra + 40}" fill="url(#fresnel)"/></mask>
-<radialGradient id="paneF" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset=".45" stop-color="#eaf1ff" stop-opacity="${kk(0.05)}"/><stop offset=".78" stop-color="#f4f7ff" stop-opacity="${kk(0.15)}"/><stop offset=".95" stop-color="#fff" stop-opacity="${kk(0.3)}"/></radialGradient>
-<linearGradient id="coatG" gradientUnits="userSpaceOnUse" x1="${cx - Ra}" y1="${cy - Ra}" x2="${cx}" y2="${cy}"><stop offset="0" stop-color="#c79bff"/><stop offset=".5" stop-color="#8fe3d0"/><stop offset="1" stop-color="#c79bff"/></linearGradient>
-<radialGradient id="lampG"><stop offset="0" stop-color="#fff" stop-opacity="${kk(0.95)}"/><stop offset=".25" stop-color="#fff" stop-opacity="${kk(0.45)}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    const kk = (x) => +Math.min(1, x * k).toFixed(3), shapes = ROOM.map((L) => `<path data-l="${L.id}" fill-opacity="${kk(L.a)}"/>`).join('');
+    return `${svgOpen('spec', vb, `aria-hidden="true" data-cx="${cx}" data-cy="${cy}" data-ra="${Ra}"`)}<defs>
+<clipPath id="xtal"><circle cx="${cx}" cy="${cy}" r="${Ra - 2}"/></clipPath>
+<filter id="sEdge" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation=".7"/></filter>
+<filter id="sBloom" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
+<filter id="sNear" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="26"/></filter>
+<radialGradient id="hazeG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#d8dde6" stop-opacity="${kk(0.025)}"/><stop offset=".7" stop-color="#d8dde6" stop-opacity="${kk(0.04)}"/><stop offset="1" stop-color="#d8dde6" stop-opacity="${kk(0.1)}"/></radialGradient>
+<radialGradient id="fresG" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${Ra}"><stop offset="0" stop-color="#fff" stop-opacity=".62"/><stop offset=".55" stop-color="#fff" stop-opacity=".8"/><stop offset=".85" stop-color="#fff"/></radialGradient>
+<mask id="fresM" maskUnits="userSpaceOnUse" x="${cx - Ra}" y="${cy - Ra}" width="${2 * Ra}" height="${2 * Ra}"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#fresG)"/></mask>
+<mask id="scrM" maskUnits="userSpaceOnUse" x="${cx - Ra}" y="${cy - Ra}" width="${2 * Ra}" height="${2 * Ra}"><circle cx="${cx}" cy="${cy}" r="${Ra}" fill="#fff" fill-opacity=".14"/><g fill="#fff" filter="url(#sNear)"><use href="#lights"/></g></mask>
 </defs>
-<g mask="url(#specMask)">
-<path d="${sectorD(cx, cy, Ra * 0.58, Ra * 0.98, 196, 262)}" fill="#fff" fill-opacity="${kk(0.035)}" filter="url(#sb14)"/>
-<g filter="url(#sb1)"><path d="${win.join('')}" fill="url(#paneF)"/><path d="${win2.join('')}" fill="url(#paneF)" opacity=".7"/></g>
-<path d="${win.join('')}" fill="none" stroke="url(#coatG)" stroke-opacity="${kk(0.16)}" stroke-width="1.2"/>
-<path d="${arcD(cx, cy, Ra - 9, 300, 400)}" fill="none" stroke="#b79cff" stroke-opacity="${kk(0.12)}" stroke-width="5" stroke-linecap="round" filter="url(#sb4)"/>
-<path d="${arcD(cx, cy, Ra - 7, 120, 165)}" fill="none" stroke="#9fe8d6" stroke-opacity="${kk(0.08)}" stroke-width="4" stroke-linecap="round" filter="url(#sb4)"/>
-</g>
-<circle cx="${n1(lamp[0])}" cy="${n1(lamp[1])}" r="15" fill="url(#lampG)"/>
-<circle cx="${n1(lamp[0])}" cy="${n1(lamp[1])}" r="2.6" fill="#fff" fill-opacity="${kk(0.95)}"/>
-<circle cx="${n1(glint[0])}" cy="${n1(glint[1])}" r="7" fill="url(#lampG)" opacity=".5"/>
-</svg></div>`;
+<g clip-path="url(#xtal)">
+<circle cx="${cx}" cy="${cy}" r="${Ra}" fill="url(#hazeG)"/>
+<path d="${scratchD(cx, cy, Ra, 70, 7)}" fill="none" stroke="#fff" stroke-opacity="${kk(0.75)}" stroke-width=".8" stroke-linecap="round" mask="url(#scrM)"/>
+<g mask="url(#fresM)" fill="#fff"><g filter="url(#sBloom)" opacity=".22"><use href="#lights"/></g><g id="lights" filter="url(#sEdge)">${shapes}</g></g>
+</g></svg>`;
   }
 
   // Shrouds are broad, low lobes on the case (about a quarter of the case radius wide, standing 17.5 proud of it), drawn
@@ -2266,6 +2290,7 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
     device.className = 'device ' + face.kind + (pal.negative ? ' neg' : '') + (lensOk ? ' lens' : '');
     device.innerHTML = face.kind === 'watch' ? watchLayers(face) : clockLayers(face);
     deviceSvg = device.querySelector('.segs');
+    applyTilt(cur[0], cur[1]);
     const st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     st.textContent = `.lcd{--g:${pal.lcdGhost}} .mg{--g:${pal.mgGhost}} .st{--g:${pal.stGhost}} .dyn .lcdl .s{fill:${pal.lcdOn}} .dyn .mgl .s{fill:${pal.mgOn}} .dyn .stl .s{fill:${pal.stOn}}`;
     device.querySelector('.dial').prepend(st.cloneNode(true)); deviceSvg.prepend(st);
@@ -2338,10 +2363,24 @@ ${specLayer(vb, cx, cy, Ra, noir ? 0.55 : 1.15)}`;
   // tilt: the layers sit at different depths, so turning the device slides the reflections over the dial
   const wrap = $('.device-wrap');
   const still = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-  function tilt(x, y) { // x, y in -1..1
-    x = Math.max(-1, Math.min(1, x)); y = Math.max(-1, Math.min(1, y));
-    device.style.transform = `rotateY(${(x * 11).toFixed(2)}deg) rotateX(${(-y * 9).toFixed(2)}deg)`;
+  let tgt = [0, 0], cur = [0, 0], tiltRaf = 0, tiltT = 0;
+  function applyTilt(x, y) {
+    const ry = x * 11, rx = -y * 9;
+    device.style.transform = `rotateY(${ry.toFixed(2)}deg) rotateX(${rx.toFixed(2)}deg)`;
     device.style.setProperty('--tx', x.toFixed(3)); device.style.setProperty('--ty', y.toFixed(3));
+    updateSpec(device, ry, rx);
+  }
+  function tiltStep(t) {
+    const a = 1 - Math.exp(-Math.min(64, t - tiltT) / 120); tiltT = t;
+    cur = cur.map((c, i) => c + (tgt[i] - c) * a);
+    const done = Math.abs(tgt[0] - cur[0]) + Math.abs(tgt[1] - cur[1]) < 4e-4;
+    if (done) cur = tgt.slice();
+    applyTilt(cur[0], cur[1]);
+    tiltRaf = done ? 0 : requestAnimationFrame(tiltStep);
+  }
+  function tilt(x, y) { // x, y in -1..1; eases toward the target
+    tgt = [Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))];
+    if (!tiltRaf) { tiltT = performance.now(); tiltRaf = requestAnimationFrame(tiltStep); }
   }
   if (!still && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
     $('#stage').addEventListener('pointermove', (e) => {
