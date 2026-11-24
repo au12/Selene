@@ -13,7 +13,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 // Aura (soft layer under a lit segment) per face & class, in face units (1000 = dial diameter).
 const AURA = {
-  arc: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.32, color: '#1c221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f1b44a' }, st: { dx: 0, dy: 0, sigma: 3, alpha: 0.6, color: '#9fc0f2' } },
+  arc: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.32, color: '#1c221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f1b44a' }, st: { dx: 0, dy: 0, sigma: 3, alpha: 0.55, color: '#f1b44a' } },
   desk: { lcd: { dx: 2.2, dy: 2.8, sigma: 1.3, alpha: 0.30, color: '#1e221e' }, mg: { dx: 0, dy: 0, sigma: 4.5, alpha: 0.5, color: '#f4bb50' }, st: { dx: 0, dy: 0, sigma: 3, alpha: 0.6, color: '#a9c6f4' } },
   noir: { lcd: { dx: 0, dy: 0, sigma: 3.2, alpha: 0.42, color: '#ff9a30' }, mg: { dx: 0, dy: 0, sigma: 5, alpha: 0.55, color: '#ffa840' }, st: { dx: 0, dy: 0, sigma: 3.2, alpha: 0.55, color: '#ffa840' } },
 };

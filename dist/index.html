@@ -824,6 +824,16 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
     return `M${f1(x)} ${f1(y - r)}Q${f1(x + a)} ${f1(y - a)} ${f1(x + r)} ${f1(y)}Q${f1(x + a)} ${f1(y + a)} ${f1(x)} ${f1(y + r)}Q${f1(x - a)} ${f1(y + a)} ${f1(x - r)} ${f1(y)}Q${f1(x - a)} ${f1(y - a)} ${f1(x)} ${f1(y - r)}Z`;
   }
 
+  /** Small five-point star with slightly rounded points. */
+  function star5D(x, y, r) {
+    let d = '';
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.44 : r;
+      d += (i ? 'L' : 'M') + f1(x + rr * Math.cos(a)) + ' ' + f1(y + rr * Math.sin(a));
+    }
+    return d + 'Z';
+  }
+
   // ---------------------------------------------------------------- shared LCD block
   /**
    * Standard LCD content (row 1: 3-char matrix + 4 small digits; row 2: big time).
@@ -895,7 +905,7 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
     const avoidStar = (x, y) => G.starAvoid(x, y) || segs.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < (G.mr + 13) ** 2) ||
       (x - N.x) ** 2 + (y - N.y) ** 2 < 30 ** 2;
     const st = spread(G.starSeed, 18, (x, y) => G.starIn(x, y) && !avoidStar(x, y)).sort((a, b) => a.x - b.x);
-    st.forEach((p, k) => segs.push({ id: 's' + k, d: sparkD(p.x, p.y, G.starR * (0.78 + 0.5 * ((k * 7 + 3) % 5) / 4)), cls: 'st', cx: p.x, cy: p.y }));
+    st.forEach((p, k) => segs.push({ id: 's' + k, d: (G.starShape || sparkD)(p.x, p.y, G.starR * (0.78 + 0.5 * ((k * 7 + 3) % 5) / 4)), cls: 'st', cx: p.x, cy: p.y }));
     return segs;
   }
 
@@ -911,7 +921,7 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
   // ================================================================ FACE: ARC (wristwatch dial)
   function buildArc(opt = {}) {
     const C = { // palette
-      dial0: '#1d1f23', dial1: '#08090a', ink: '#e9edf2', silver: '#a7afba', gold: '#d9b86c', yellow: '#e9c23a', blue: '#6aa6f0',
+      dial0: '#26272a', dial1: '#121315', ink: '#e9edf2', silver: '#a7afba', gold: '#d9b86c', yellow: '#e9c23a', blue: '#6aa6f0', line: '#c9a54a',
       lcd0: '#cfd4c3', lcd1: '#c1c6b4',
     };
     // moon panel: as wide as the time display below it, with a low arched top
@@ -920,17 +930,29 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
     const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
     const T = { rx: 208, ry: 136, cy: W.cy - 8 }; // hour-angle track
-    const G = { cx: 500, cy: W.cy, rx: 286, ry: 226, mr: 29, a0: 162, astep: 18,
+    // mountain range along the horizon: [x, height above the horizon] break points, drawn as gold line art
+    const RANGE = [[-350, 0], [-318, 10], [-286, 6], [-246, 30], [-214, 18], [-178, 46], [-150, 34], [-118, 58], [-92, 40],
+      [-66, 52], [-30, 22], [4, 30], [40, 14], [78, 38], [104, 26], [140, 64], [170, 44], [196, 54], [232, 22], [262, 34],
+      [296, 12], [324, 18], [350, 0]];
+    const ridge = (x) => { // horizon y under the ridge line at x
+      const u = x - W.cx;
+      for (let i = 1; i < RANGE.length; i++) if (u <= RANGE[i][0]) {
+        const [x0, h0] = RANGE[i - 1], [x1, h1] = RANGE[i];
+        return W.cy - (h0 + (h1 - h0) * (u - x0) / (x1 - x0));
+      }
+      return W.cy;
+    };
+    const G = { cx: 500, cy: W.cy, rx: 286, ry: 222, mr: 35, a0: 162, astep: 18,
       hr0: 1, hr1: 1, hw: 0, hdot: 6.2, hrx: () => T.rx, hry: () => T.ry, hcy: T.cy,
       sex: 186, swx: 814, sy: W.cy, sr: 12.5,
-      nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starR: 5.6,
-      starIn: (x, y) => Math.abs(x - W.cx) < W.R - 22 && y < W.cy - 16 && y > topY(x) + 16,
+      nadir: { x: 500, y: W.cy + 25.5, s: 5.4 }, starSeed: 12, starR: 6.4, starShape: star5D,
+      starIn: (x, y) => Math.abs(x - W.cx) < W.R - 22 && y < ridge(x) - 18 && y > topY(x) + 16,
       starAvoid: (x, y) => { const e = Math.hypot((x - W.cx) / T.rx, (y - T.cy) / T.ry); return e > 0.8 && e < 1.2; } };
     const mg = moonGraph(G);
-    // sea reflections under each moon slot
+    // r0..r8: a small gold pointer under the horizon below each moon slot
     for (let k = 0; k < 9; k++) {
-      const x = mg[k].cx;
-      mg.push({ id: 'r' + k, cls: 'mg', d: rrect(x - 13, W.cy + 6, 26, 3, 1.5) + rrect(x - 8.5, W.cy + 11.6, 17, 2.8, 1.4) + rrect(x - 4.5, W.cy + 17, 9, 2.4, 1.2) });
+      const x = mg[k].cx, y = W.cy + 7;
+      mg.push({ id: 'r' + k, cls: 'mg', d: `M${f1(x)} ${y}L${f1(x + 6)} ${y + 8}H${f1(x - 6)}Z` });
     }
     const L = { mx: 186, my: 548, mp: 9.6, md: 8.2, mg: 12,
       sx: 566, sy: 548, sw: 42, sh: 66, st: 8.6, sgap: 11, sdz: 26, g: 1.6, slant: 4,
@@ -938,9 +960,9 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
       bx: 262, by: 656, bw: 70, bh: 102, bt: 13.5, bgap: 15, bcz: 26, bsgap: 20, ssw: 48, ssh: 72, sst: 10,
       ix0: 180, icap: 12.5, lblUp: 14 };
     const lcd = lcdBlock(L);
-    const inDome = (x, y) => Math.abs(x - W.cx) < W.R - 12 && y < W.cy - 12 && y > topY(x) + 10;
+    const inDome = (x, y) => Math.abs(x - W.cx) < W.R - 12 && y < ridge(x) - 12 && y > topY(x) + 10;
     const avoid = (x, y) => G.starAvoid(x, y) || mg.slice(0, 9).some((m) => (m.cx - x) ** 2 + (m.cy - y) ** 2 < 42 ** 2);
-    const starSvg = specks(7, 26, (x, y) => inDome(x, y) && !avoid(x, y), mg);
+    const starSvg = specks(7, 16, (x, y) => inDome(x, y) && !avoid(x, y), mg);
     // dial sunburst
     let burst = '';
     for (let i = 0; i < 180; i++) {
@@ -960,11 +982,10 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
     let topD = '';
     for (let i = 1; i <= 120; i++) { const x = W.cx - W.R + (2 * W.R) * (0.5 - 0.5 * Math.cos(Math.PI * i / 120)); topD += `L${f1(x)} ${(i === 120 ? sideY : topY(x)).toFixed(2)}`; }
     const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
-    const waves = [0, 1].map((j) => {
-      let d = `M${W.cx - W.R + 6} ${W.cy + 12 + j * 10}`;
-      for (let x = W.cx - W.R + 6; x < W.cx + W.R - 6; x += 24) d += `q6 -2.2 12 0t12 0`;
-      return d;
-    }).join('');
+    const ridgeD = RANGE.map(([u, h], i) => `${i ? 'L' : 'M'}${W.cx + u} ${W.cy - h}`).join('');
+    // a few slope lines inside the range, for depth
+    const slopesD = [[-178, 46, -150, 20], [-118, 58, -84, 18], [140, 64, 172, 26], [78, 38, 100, 12], [-246, 30, -226, 8]]
+      .map(([x0, h0, x1, h1]) => `M${W.cx + x0} ${W.cy - h0}L${W.cx + x1} ${W.cy - h1}`).join('');
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
     const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
@@ -989,19 +1010,21 @@ ${opt.classic
       `<g transform="translate(500 0) skewX(-9) translate(-500 0)">${text('serif', 'LUNAR ARC', 500 + 158 * 0.158, 158, 17, { align: 'middle', track: 0.07, attrs: `fill="${C.yellow}"` })}</g>`
     : text('brand', 'SELENE', 500, 118, 29, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` }) +
       text('label', 'LUNAR ARC', 500, 150, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
-<path d="${domeD}" fill="url(#arcSky)"/>
-<g fill="#c7d3e3">${starSvg}</g>
-<path d="${haScale}" fill="${C.silver}" opacity=".55"/>
-<g clip-path="url(#arcPanel)"><rect x="${W.cx - W.R}" y="${W.cy}" width="${2 * W.R}" height="40" fill="#05080d" opacity=".92"/>
-<path d="${waves}" fill="none" stroke="#9fb3cf" stroke-opacity=".22" stroke-width="1.4"/>
-<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="#a9bbd3" stroke-opacity=".75" stroke-width="1.8"/></g>
-${text('label', 'E', W.cx - W.R + 46, W.cy + 27, 10, { attrs: `fill="${C.silver}" opacity=".85"` })}
-${text('label', 'W', W.cx + W.R - 46, W.cy + 27, 10, { align: 'end', attrs: `fill="${C.silver}" opacity=".85"` })}
-<path d="${domeD}" fill="none" stroke="#b9c6d8" stroke-width="3.2"/>
-<path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="1.2" transform="translate(0 1.5)"/>
+<path d="${domeD}" fill="#030304"/>
+<g fill="${C.line}" opacity=".7">${starSvg}</g>
+<path d="${haScale}" fill="${C.line}" opacity=".5"/>
+<g clip-path="url(#arcPanel)">
+<path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
+<path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/>
+<path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
+${text('label', 'E', W.cx - W.R + 46, W.cy + 24, 10, { attrs: `fill="${C.line}"` })}
+${text('label', 'W', W.cx + W.R - 46, W.cy + 24, 10, { align: 'end', attrs: `fill="${C.line}"` })}
+<path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".75" stroke-width="2.2"/>
+<path d="M62 515H${W.cx - W.R - 14}M${W.cx + W.R + 14} 515H938" stroke="${C.yellow}" stroke-width="2.2"/>
 <g class="mgl">${segPaths(mg)}</g>
 <path d="${lcdD(9)}" fill="#05080e"/>
-<path d="${lcdD(9)}" fill="none" stroke="#8d9bb0" stroke-opacity=".45" stroke-width="1.6"/>
+<path d="${lcdD(9)}" fill="none" stroke="#000" stroke-opacity=".7" stroke-width="1.6"/>
 <path class="lcdbg" d="${lcdD(0)}" fill="url(#arcLcd)"/>
 <path class="el" d="${lcdD(0)}" fill="#6fe3cf" opacity="0"/>
 <g class="lcdl">${segPaths(lcd)}</g>
@@ -1019,7 +1042,7 @@ ${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn(
 `;
     return { id: 'arc', name: 'Arc', svg, segs: mg.concat(lcd), palette: {
       lcdOn: '#161b18', lcdGhost: opt.classic ? 'rgba(22,27,24,.062)' : 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
-      stOn: '#e6eefb', stGhost: 'rgba(230,238,251,.022)',
+      stOn: '#ecc75e', stGhost: 'rgba(236,199,94,.02)',
       shadow: 'rgba(28,34,30,.32)', glow: 'rgba(255,214,120,.55)', negative: false,
       el: '#7fe7d2' }, lcdBox, kind: 'watch' };
   }
