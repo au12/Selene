@@ -1071,8 +1071,14 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
     // time display: tight top corners (the same radius as the moon panel's bottom corners), deep round bottom corners
     const lcdBox = { x: 150, y: 522, w: 700, h: 276, r: BR, rb: 104 };
     const lcdD = (g) => rrect2(lcdBox.x - g, lcdBox.y - g, lcdBox.w + 2 * g, lcdBox.h + 2 * g, lcdBox.r + g * 0.9, lcdBox.rb + g);
-    const btn = (label, ang, upper) => arcText('label', label, 500, 500, 436, ang, 14, upper, { track: 0.16, attrs: `fill="${C.silver}"` }) +
-      `<circle cx="${f1(500 + 468 * Math.cos(ang * RAD))}" cy="${f1(500 + 468 * Math.sin(ang * RAD))}" r="5.5" fill="${opt.classic ? C.blue : C.gold}"/>`;
+    // pusher labels as on the original: the dot sits toward 12 / 6 o'clock and the label runs along the rim from just
+    // past the dot toward 9 / 3 o'clock (dir: which way, in degrees, the label extends from its dot)
+    const btn = (label, dotAng, upper, dir) => {
+      const R = 440, cap = 14, tr = 0.16, w = textWidth('label', label, cap / GLYPHS.label.capH * 1000, tr);
+      const half = (w / 2) / R / RAD, mid = dotAng + dir * (5.2 + half);
+      return arcText('label', label, 500, 500, R, mid, cap, upper, { track: tr, attrs: `fill="${C.silver}"` }) +
+        `<circle cx="${f1(500 + R * Math.cos(dotAng * RAD))}" cy="${f1(500 + R * Math.sin(dotAng * RAD))}" r="5.5" fill="${C.blue}"/>`;
+    };
     const svg = `
 <defs>
   <radialGradient id="arcDial" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${C.dial0}"/><stop offset="1" stop-color="${C.dial1}"/></radialGradient>
@@ -1088,10 +1094,10 @@ details summary{cursor:pointer;color:#c9d2e0;font-size:13px}
 <circle cx="500" cy="500" r="480" fill="none" stroke="${C.silver}" stroke-opacity=".35" stroke-width="1.5"/>
 ${opt.classic
     // classic print: heavy sans name over a gold serif line, in the manner of an early-'90s digital dial
-    ? text('labelB', 'SELENE', 500, 120, 27, { align: 'middle', track: 0.03, attrs: `fill="${C.ink}"` }) +
-      `<g transform="translate(500 0) skewX(-9) translate(-500 0)">${text('serif', 'LUNAR ARC', 500 + 158 * 0.158, 158, 17, { align: 'middle', track: 0.07, attrs: `fill="${C.yellow}"` })}</g>`
-    : text('brand', 'SELENE', 500, 118, 29, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` }) +
-      text('label', 'LUNAR ARC', 500, 150, 11.5, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
+    ? text('labelB', 'SELENE', 500, 124, 35, { align: 'middle', track: 0.03, attrs: `fill="${C.ink}"` }) +
+      `<g transform="translate(500 0) skewX(-9) translate(-500 0)">${text('serif', 'LUNAR ARC', 500 + 167 * 0.158, 167, 22, { align: 'middle', track: 0.07, attrs: `fill="${C.yellow}"` })}</g>`
+    : text('brand', 'SELENE', 500, 122, 37, { align: 'middle', track: 0.2, attrs: `fill="${C.ink}"` }) +
+      text('label', 'LUNAR ARC', 500, 162, 15, { align: 'middle', track: 0.42, attrs: `fill="${C.gold}"` })}
 <path d="${domeD}" fill="#030304"/>
 <g fill="${C.line}" opacity=".7">${starSvg}</g>
 <g clip-path="url(#arcPanel)">
@@ -1122,7 +1128,7 @@ ${(() => { // dial print under the display, the same in both modes: yellow spec 
       text('label', 'ALARM CHRONO', 500, 891, 16, { align: 'middle', track: 0.06, attrs: `fill="${C.blue}"` }) +
       text('label', 'JAPAN U', 500, 925, 9.5, { align: 'middle', track: 0.14, attrs: `fill="${C.silver}" opacity=".9"` });
   })()}
-${btn('SET', 212, true)}${btn('MODE', 148, false)}${btn('REV', -32, true)}${btn('FWD', 32, false)}
+${btn('SET', 214, true, -1)}${btn('MODE', 146, false, 1)}${btn('REV', -34, true, 1)}${btn('FWD', 34, false, -1)}
 `;
     return { id: 'arc', name: 'Arc', svg, segs: mg.concat(lcd), palette: {
       lcdOn: '#161b18', lcdGhost: opt.classic ? 'rgba(22,27,24,.062)' : 'rgba(22,27,24,.036)', mgOn: '#f1c862', mgGhost: 'rgba(241,200,98,.014)',
