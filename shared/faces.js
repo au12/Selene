@@ -329,7 +329,7 @@
     // soft, pebble-like outline: the top is half a superellipse (rounder shoulders than an arch), the base has wide corners
     const SE = 2.7, BR = 50, baseY = W.cy + 34, sideY = baseY - BR; // BR = the time display's top-corner radius; the sides end where the corners begin
     const topY = (x) => { const u = Math.min(1, Math.abs(x - W.cx) / W.R); return sideY - (sideY - W.top) * Math.pow(1 - Math.pow(u, SE), 1 / SE); };
-    const T = { rx: 136, ry: 76, cy: W.cy - 10 }; // hour-angle track: a wide arc inside the mountain
+    const T = { rx: 112, ry: 112, cy: W.cy - 8 }; // hour-angle track: a circular arc inside the mountain
     // one Matterhorn-style peak in the middle, jagged and rocky, on a wide base. RANGE = [x from centre, height above
     // the horizon]: a smooth envelope (steep horn, hooked summit, shoulder on the west ridge) broken into rocky steps.
     // The envelope stays under the moon slots: the moons sweep over it, the moon-position marker sits inside it.
@@ -401,20 +401,44 @@
     const domeD = `M${W.cx - W.R} ${sideY}${topD}${base}`;
     const ridgeD = RANGE.map(([u, h], i) => `${i ? 'L' : 'M'}${W.cx + u} ${W.cy - h}`).join('');
     // a few slope lines inside the range, for depth
-    // rock face: an even, staggered hatch of short strokes along the fall line (down and out on each face),
-    // kept below the ridge, above the horizon, and clear of the marker arc and the E / W labels
-    const EW = 204; // E / W sit inside the mountain's base corners, this far from the centre
+    // light rock detail: broken strata lines that follow the ridge a little below it, and a few couloirs falling
+    // from the ridge notches. Kept clear of the marker arc and the E / W labels.
+    const EW = 188; // E / W sit inside the mountain's base corners, this far from the centre
     const slopesD = (() => {
-      let d = '';
-      const pip = (x, y) => Math.abs(Math.hypot((x - W.cx) / T.rx, (y - T.cy) / T.ry) - 1) < 0.16 && y < W.cy;
-      const lbl = (x, y) => y > W.cy - 22 && Math.abs(Math.abs(x - W.cx) - EW) < 20;
-      const L = 7.5, ca = Math.cos(58 * RAD), sa = Math.sin(58 * RAD);
-      for (let row = 0, y = W.cy - 178; y < W.cy - 12; row++, y += 12) {
-        for (let x = W.cx - 330 + (row % 2) * 8; x < W.cx + 330; x += 16) {
-          const dx = (x < W.cx ? -1 : 1) * ca * L, dy = sa * L, x1 = x + dx, y1 = y + dy;
-          if (y < ridge(x) + 8 || y1 < ridge(x1) + 8 || y1 > W.cy - 8 || pip(x, y) || pip(x1, y1) || lbl(x, y) || lbl(x1, y1)) continue;
-          d += `M${f1(x)} ${f1(y)}L${f1(x1)} ${f1(y1)}`;
+      let sd = 23, d = '';
+      const rnd = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+      const pip = (x, y) => Math.abs(Math.hypot(x - W.cx, y - T.cy) - T.rx) < 12 && y < W.cy;
+      const lbl = (x, y) => y > W.cy - 28 && Math.abs(Math.abs(x - W.cx) - EW) < 22;
+      const clear = (x, y) => y < W.cy - 7 && !pip(x, y) && !lbl(x, y);
+      const smooth = (x) => { let t = 0; for (let k = -3; k <= 3; k++) t += ridge(x + k * 5); return t / 7; };
+      // strata: dashes parallel to the smoothed ridge, sparser further down
+      [[10, 0.85], [21, 0.75], [34, 0.65], [49, 0.55], [66, 0.45], [86, 0.35]].forEach(([o, p]) => {
+        for (let x = W.cx - 320; x < W.cx + 320;) {
+          const len = 9 + rnd() * 18, gap = 5 + rnd() * 14;
+          if (rnd() < p) {
+            let seg = '', n = 0;
+            for (let t = 0; t <= len; t += 3) {
+              const xx = x + t, yy = smooth(xx) + o + (rnd() - 0.5) * 1.2;
+              if (yy < ridge(xx) + 4 || !clear(xx, yy)) { if (n > 1) d += seg; seg = ''; n = 0; continue; }
+              seg += `${n ? 'L' : 'M'}${f1(xx)} ${f1(yy)}`; n++;
+            }
+            if (n > 1) d += seg;
+          }
+          x += len + gap;
         }
+      });
+      // couloirs: from the deeper notches, a slightly bending line down the fall line
+      for (let i = 2; i < RANGE.length - 2; i++) {
+        const [u, h] = RANGE[i];
+        if (h < 26 || !(h < RANGE[i - 1][1] && h < RANGE[i + 1][1]) || rnd() < 0.15) continue;
+        const dir = u < 0 ? -1 : 1, steps = 4 + Math.floor(rnd() * 4);
+        let x = W.cx + u, y = W.cy - h + 2, seg = `M${f1(x)} ${f1(y)}`, n = 1;
+        for (let k = 0; k < steps; k++) {
+          x += dir * (2 + rnd() * 4); y += 8 + rnd() * 6;
+          if (!clear(x, y)) break;
+          seg += `L${f1(x)} ${f1(y)}`; n++;
+        }
+        if (n > 2) d += seg;
       }
       return d;
     })();
@@ -447,11 +471,11 @@ ${opt.classic
 <g clip-path="url(#arcPanel)">
 <path d="${ridgeD}V${W.cy + 40}H${W.cx - W.R}Z" fill="#030304"/>
 <path d="${ridgeD}" fill="none" stroke="${C.line}" stroke-width="1.6" stroke-linejoin="round"/>
-<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".42" stroke-width="1.1" stroke-linecap="round"/>
+<path d="${slopesD}" fill="none" stroke="${C.line}" stroke-opacity=".6" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M${W.cx - W.R} ${W.cy}H${W.cx + W.R}" stroke="${C.line}" stroke-width="1.6"/></g>
 <path d="${haScale}" fill="${C.line}" opacity=".75"/>
-${text('label', 'E', W.cx - EW, W.cy - 6, 10, { align: 'middle', attrs: `fill="${C.line}"` })}
-${text('label', 'W', W.cx + EW, W.cy - 6, 10, { align: 'middle', attrs: `fill="${C.line}"` })}
+${text('labelB', 'E', W.cx - EW, W.cy - 7, 15, { align: 'middle', attrs: `fill="${C.line}"` })}
+${text('labelB', 'W', W.cx + EW, W.cy - 7, 15, { align: 'middle', attrs: `fill="${C.line}"` })}
 <path d="${domeD}" fill="none" stroke="#000" stroke-opacity=".75" stroke-width="2.2"/>
 <path d="M62 515H${W.cx - W.R - 14}M${W.cx + W.R + 14} 515H938" stroke="${C.yellow}" stroke-width="2.2"/>
 <g class="mgl">${segPaths(mg)}</g>
